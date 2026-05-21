@@ -84,7 +84,11 @@ export const OriginalExpenseDetails: React.FC<{
   ]);
 
   useEffect(() => {
-    if (localOriginalCurrency === settlementCurrency || !rateQuery.data?.rate || conversionRate) {
+    if (
+      localOriginalCurrency === settlementCurrency ||
+      !rateQuery.data?.rate ||
+      conversionRate !== undefined
+    ) {
       return;
     }
 
@@ -240,7 +244,7 @@ export const OriginalExpenseDetails: React.FC<{
             <div className="flex flex-col gap-2">
               <Label>{t('expense_details.add_expense_details.overseas.rate')}</Label>
               <Input
-                type="number"
+                type="text"
                 step={`0.${'0'.repeat(MAX_RATE_PRECISION - 1)}1`}
                 min={0}
                 value={localRate}

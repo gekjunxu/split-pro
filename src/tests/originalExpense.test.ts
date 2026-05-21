@@ -1,8 +1,8 @@
 import { SplitType, type User } from '@prisma/client';
 
+import { validateAndNormalizeOriginalExpenseFields } from '~/lib/originalExpense';
 import { type AddExpenseState, calculateParticipantSplit, initSplitShares } from '~/store/addStore';
 import { currencyConversion } from '~/utils/numbers';
-import { normalizeOriginalExpenseFields } from '~/lib/originalExpense';
 
 const createMockUser = (id: number, name: string): User => ({
   id,
@@ -37,9 +37,9 @@ const createEqualSplitState = (amount: bigint): AddExpenseState =>
     expenseDate: new Date('2026-05-21'),
   }) as AddExpenseState;
 
-describe('normalizeOriginalExpenseFields', () => {
+describe('validateAndNormalizeOriginalExpenseFields', () => {
   it('keeps same-currency expenses unchanged by clearing original fields', () => {
-    const normalized = normalizeOriginalExpenseFields({
+    const normalized = validateAndNormalizeOriginalExpenseFields({
       amount: 1138n,
       currency: 'SGD',
       originalAmount: 1138n,
@@ -57,7 +57,7 @@ describe('normalizeOriginalExpenseFields', () => {
   });
 
   it('preserves a foreign-currency expense with a reproducible settlement amount', () => {
-    const normalized = normalizeOriginalExpenseFields({
+    const normalized = validateAndNormalizeOriginalExpenseFields({
       amount: 1138n,
       currency: 'SGD',
       originalAmount: 1250n,
@@ -71,7 +71,7 @@ describe('normalizeOriginalExpenseFields', () => {
   });
 
   it('splits a foreign-currency settlement amount evenly for balances', () => {
-    const normalized = normalizeOriginalExpenseFields({
+    const normalized = validateAndNormalizeOriginalExpenseFields({
       amount: 1138n,
       currency: 'SGD',
       originalAmount: 1250n,
@@ -86,14 +86,14 @@ describe('normalizeOriginalExpenseFields', () => {
   });
 
   it('supports mixed same-currency and foreign expenses without changing canonical totals', () => {
-    const sameCurrencyExpense = normalizeOriginalExpenseFields({
+    const sameCurrencyExpense = validateAndNormalizeOriginalExpenseFields({
       amount: 1000n,
       currency: 'SGD',
       originalAmount: null,
       originalCurrency: null,
       conversionRate: null,
     });
-    const foreignExpense = normalizeOriginalExpenseFields({
+    const foreignExpense = validateAndNormalizeOriginalExpenseFields({
       amount: 1138n,
       currency: 'SGD',
       originalAmount: 1250n,
@@ -107,7 +107,7 @@ describe('normalizeOriginalExpenseFields', () => {
   });
 
   it('supports negative foreign-currency refunds when the converted settlement amount matches', () => {
-    const normalized = normalizeOriginalExpenseFields({
+    const normalized = validateAndNormalizeOriginalExpenseFields({
       amount: -1138n,
       currency: 'SGD',
       originalAmount: -1250n,
@@ -127,7 +127,7 @@ describe('normalizeOriginalExpenseFields', () => {
       to: 'SGD',
     });
 
-    const normalized = normalizeOriginalExpenseFields({
+    const normalized = validateAndNormalizeOriginalExpenseFields({
       amount: editedAmount,
       currency: 'SGD',
       originalAmount: 1500n,

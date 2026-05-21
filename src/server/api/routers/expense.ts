@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { simplifyDebts } from '~/lib/simplify';
 import { createTRPCRouter, groupProcedure, protectedProcedure } from '~/server/api/trpc';
 import { db } from '~/server/db';
-import { normalizeOriginalExpenseFields } from '~/lib/originalExpense';
+import { validateAndNormalizeOriginalExpenseFields } from '~/lib/originalExpense';
 import { BigMath, currencyConversion } from '~/utils/numbers';
 
 import {
@@ -21,6 +21,32 @@ import { SplitType } from '@prisma/client';
 import { DEFAULT_CATEGORY } from '~/lib/category';
 import { getUserMap } from './user';
 import { FriendBalance } from '~/components/Friend/FriendBalance';
+
+const validateOriginalExpenseInput = <
+  T extends {
+    amount: bigint;
+    currency: string;
+    originalAmount?: bigint | null;
+    originalCurrency?: string | null;
+    conversionRate?: number | null;
+  },
+>(
+  input: T,
+) => {
+  try {
+    return validateAndNormalizeOriginalExpenseFields({
+      ...input,
+      originalAmount: input.originalAmount ?? null,
+      originalCurrency: input.originalCurrency ?? null,
+      conversionRate: input.conversionRate ?? null,
+    });
+  } catch (error) {
+    throw new TRPCError({
+      code: 'BAD_REQUEST',
+      message: error instanceof Error ? error.message : 'Invalid original expense conversion data',
+    });
+  }
+};
 
 export const expenseRouter = createTRPCRouter({
   getCumulatedBalances: protectedProcedure.query(async ({ ctx }) => {
@@ -135,22 +161,7 @@ export const expenseRouter = createTRPCRouter({
     .mutation(async ({ input: expenses, ctx }) => {
       const results = [];
       for (const input of expenses) {
-        const normalizedInput = (() => {
-          try {
-            return normalizeOriginalExpenseFields({
-              ...input,
-              originalAmount: input.originalAmount ?? null,
-              originalCurrency: input.originalCurrency ?? null,
-              conversionRate: input.conversionRate ?? null,
-            });
-          } catch (error) {
-            throw new TRPCError({
-              code: 'BAD_REQUEST',
-              message:
-                error instanceof Error ? error.message : 'Invalid original expense conversion data',
-            });
-          }
-        })();
+        const normalizedInput = validateOriginalExpenseInput(input);
         if (input.expenseId) {
           await validateEditExpensePermission(input.expenseId, ctx.session.user.id);
         }

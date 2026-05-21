@@ -26,7 +26,9 @@ export const hasOriginalExpenseDetails = ({
   null !== undefinedToNull(conversionRate) &&
   undefinedToNull(originalCurrency) !== currency;
 
-export const normalizeOriginalExpenseFields = <T extends OriginalExpenseFields>(expense: T): T => {
+export const validateAndNormalizeOriginalExpenseFields = <T extends OriginalExpenseFields>(
+  expense: T,
+): T => {
   const originalAmount = undefinedToNull(expense.originalAmount);
   const originalCurrency = undefinedToNull(expense.originalCurrency);
   const conversionRate = undefinedToNull(expense.conversionRate);
@@ -55,7 +57,7 @@ export const normalizeOriginalExpenseFields = <T extends OriginalExpenseFields>(
   }
 
   if (!Number.isFinite(conversionRate) || conversionRate <= 0) {
-    throw new Error('Conversion rate must be positive');
+    throw new Error('Conversion rate must be a positive finite number');
   }
 
   const expectedSettlementAmount = currencyConversion({
