@@ -13,7 +13,7 @@ type OriginalExpenseFields = Pick<
   'amount' | 'currency' | 'originalAmount' | 'originalCurrency' | 'conversionRate'
 >;
 
-const normalizeNullable = <T>(value: T | null | undefined) => value ?? null;
+const undefinedToNull = <T>(value: T | null | undefined) => value ?? null;
 
 export const hasOriginalExpenseDetails = ({
   currency,
@@ -21,15 +21,15 @@ export const hasOriginalExpenseDetails = ({
   originalCurrency,
   conversionRate,
 }: Partial<OriginalExpenseFields>) =>
-  null !== normalizeNullable(originalAmount) &&
-  null !== normalizeNullable(originalCurrency) &&
-  null !== normalizeNullable(conversionRate) &&
-  normalizeNullable(originalCurrency) !== currency;
+  null !== undefinedToNull(originalAmount) &&
+  null !== undefinedToNull(originalCurrency) &&
+  null !== undefinedToNull(conversionRate) &&
+  undefinedToNull(originalCurrency) !== currency;
 
 export const normalizeOriginalExpenseFields = <T extends OriginalExpenseFields>(expense: T): T => {
-  const originalAmount = normalizeNullable(expense.originalAmount);
-  const originalCurrency = normalizeNullable(expense.originalCurrency);
-  const conversionRate = normalizeNullable(expense.conversionRate);
+  const originalAmount = undefinedToNull(expense.originalAmount);
+  const originalCurrency = undefinedToNull(expense.originalCurrency);
+  const conversionRate = undefinedToNull(expense.conversionRate);
   const hasAnyOriginalField =
     null !== originalAmount || null !== originalCurrency || null !== conversionRate;
 

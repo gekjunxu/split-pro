@@ -135,25 +135,22 @@ export const expenseRouter = createTRPCRouter({
     .mutation(async ({ input: expenses, ctx }) => {
       const results = [];
       for (const input of expenses) {
-        let normalizedInput: typeof input & {
-          originalAmount: bigint | null;
-          originalCurrency: string | null;
-          conversionRate: number | null;
-        };
-        try {
-          normalizedInput = normalizeOriginalExpenseFields({
-            ...input,
-            originalAmount: input.originalAmount ?? null,
-            originalCurrency: input.originalCurrency ?? null,
-            conversionRate: input.conversionRate ?? null,
-          });
-        } catch (error) {
-          throw new TRPCError({
-            code: 'BAD_REQUEST',
-            message:
-              error instanceof Error ? error.message : 'Invalid original expense conversion data',
-          });
-        }
+        const normalizedInput = (() => {
+          try {
+            return normalizeOriginalExpenseFields({
+              ...input,
+              originalAmount: input.originalAmount ?? null,
+              originalCurrency: input.originalCurrency ?? null,
+              conversionRate: input.conversionRate ?? null,
+            });
+          } catch (error) {
+            throw new TRPCError({
+              code: 'BAD_REQUEST',
+              message:
+                error instanceof Error ? error.message : 'Invalid original expense conversion data',
+            });
+          }
+        })();
         if (input.expenseId) {
           await validateEditExpensePermission(input.expenseId, ctx.session.user.id);
         }

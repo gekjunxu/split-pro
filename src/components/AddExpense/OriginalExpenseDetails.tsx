@@ -135,7 +135,7 @@ export const OriginalExpenseDetails: React.FC<{
   }, []);
 
   const onChangeRate = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value.replace(',', '.');
+    const raw = e.target.value.replace(/,/g, '.');
     if ('' === raw) {
       setLocalRate('');
       return;
