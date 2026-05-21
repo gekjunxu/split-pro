@@ -216,6 +216,16 @@
         }
       },
       "sponsor_us": "Sponsor us",
+      "overseas": {
+        "button": "Original paid amount",
+        "description": "Record what was actually paid when it differs from the settlement currency.",
+        "paid_amount": "Paid amount",
+        "paid_currency": "Paid currency",
+        "preview": "Settlement amount",
+        "rate": "Exchange rate",
+        "summary": "Paid {{amount}} @ {{rate}} {{settlementCurrency}}/{{originalCurrency}}",
+        "title": "Overseas expense"
+      },
       "upload_file": {
         "messages": {
           "upload_success": "File uploaded successfully"
@@ -404,6 +414,7 @@
     "expense": {
       "for": "for",
       "from": "from",
+      "original_summary": "Originally {{amount}} @ {{rate}} {{settlementCurrency}}/{{originalCurrency}}",
       "paid_by": "Paid by",
       "received_by": "Received by",
       "to": "to",

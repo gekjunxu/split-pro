@@ -40,8 +40,11 @@ export async function createExpense(
     name,
     category,
     amount,
+    originalAmount,
     splitType,
     currency,
+    originalCurrency,
+    conversionRate,
     participants,
     expenseDate,
     fileKey,
@@ -95,8 +98,11 @@ export async function createExpense(
         name,
         category,
         amount,
+        originalAmount,
         splitType,
         currency,
+        originalCurrency,
+        conversionRate,
         expenseParticipants: {
           create: nonZeroParticipants,
         },
@@ -204,8 +210,11 @@ export async function editExpense(
     name,
     category,
     amount,
+    originalAmount,
     splitType,
     currency,
+    originalCurrency,
+    conversionRate,
     participants,
     expenseDate,
     fileKey,
@@ -261,8 +270,11 @@ export async function editExpense(
         name,
         category,
         amount,
+        originalAmount,
         splitType,
         currency,
+        originalCurrency,
+        conversionRate,
         expenseParticipants: {
           create: participants,
         },
@@ -330,7 +342,15 @@ export async function getCompleteFriendsDetails(userId: number) {
     },
   });
 
-  const friends = viewBalances.reduce(
+  const friends = viewBalances.reduce< Record<
+      number,
+      {
+        id: number;
+        email?: string | null;
+        name?: string | null;
+        balances: { currency: string; amount: bigint }[];
+      }
+    >>(
     (acc, balance) => {
       const { friendId } = balance;
       acc[friendId] ??= {
@@ -349,15 +369,7 @@ export async function getCompleteFriendsDetails(userId: number) {
 
       return acc;
     },
-    {} as Record<
-      number,
-      {
-        id: number;
-        email?: string | null;
-        name?: string | null;
-        balances: { currency: string; amount: bigint }[];
-      }
-    >,
+    {},
   );
 
   return friends;
@@ -389,7 +401,7 @@ export async function importUserBalanceFromSplitWise(
 
   const users = await createUsersFromSplitwise(splitWiseUsers);
 
-  const userMap = users.reduce(
+  const userMap = users.reduce< Record<string, User>>(
     (acc, user) => {
       if (user.email) {
         acc[user.email] = user;
@@ -397,7 +409,7 @@ export async function importUserBalanceFromSplitWise(
 
       return acc;
     },
-    {} as Record<string, User>,
+    {},
   );
 
   const currencyHelperCache: Record<string, ReturnType<typeof getCurrencyHelpers>['toSafeBigInt']> =
@@ -503,7 +515,7 @@ export async function importGroupFromSplitwise(
 
   const users = await createUsersFromSplitwise(Object.values(splitwiseUserMap));
 
-  const userMap = users.reduce(
+  const userMap = users.reduce< Record<string, User>>(
     (acc, user) => {
       if (user.email) {
         acc[user.email] = user;
@@ -511,7 +523,7 @@ export async function importGroupFromSplitwise(
 
       return acc;
     },
-    {} as Record<string, User>,
+    {},
   );
 
   const missingGroups = await Promise.all(

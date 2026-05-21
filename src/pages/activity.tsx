@@ -13,6 +13,7 @@ import { withI18nStaticProps } from '~/utils/i18n/server';
 import { RefreshCcwDot } from 'lucide-react';
 import { Button } from '~/components/ui/button';
 import React from 'react';
+import { OriginalExpenseSummary } from '~/components/Expense/OriginalExpenseSummary';
 
 function getPaymentString(
   user: User,
@@ -124,6 +125,7 @@ const ActivityPage: NextPageWithUser = ({ user }) => {
                     toUIString,
                     !!e.expense.deletedBy,
                   )}
+                  <OriginalExpenseSummary expense={e.expense} className="text-xs text-gray-500" />
                   <p className="text-xs text-gray-500">{toUIDate(e.expense.expenseDate)}</p>
                 </div>
               </Link>

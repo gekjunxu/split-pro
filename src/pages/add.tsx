@@ -7,6 +7,7 @@ import MainLayout from '~/components/Layout/MainLayout';
 import { env } from '~/env';
 import { cronFromBackend } from '~/lib/cron';
 import { parseCurrencyCode } from '~/lib/currency';
+import { hasOriginalExpenseDetails } from '~/lib/originalExpense';
 import { isBankConnectionConfigured } from '~/server/bankTransactionHelper';
 import { useAddExpenseStore } from '~/store/addStore';
 import { type NextPageWithUser } from '~/types';
@@ -16,6 +17,7 @@ import { useTranslationWithUtils } from '~/hooks/useTranslationWithUtils';
 import { toast } from 'sonner';
 import { deserializeDefaultSplit } from '~/lib/defaultSplit';
 import { useAppStore } from '~/store/appStore';
+import { BigMath } from '~/utils/numbers';
 
 const AddPage: NextPageWithUser<{
   enableSendingInvites: boolean;
@@ -34,6 +36,7 @@ const AddPage: NextPageWithUser<{
     setAmountStr,
     setExpenseDate,
     setCategory,
+    setOriginalExpense,
     resetState,
     setCronExpression,
     setFileKey,
@@ -202,6 +205,18 @@ const AddPage: NextPageWithUser<{
     setDescription(expenseQuery.data.name);
     setCategory(expenseQuery.data.category);
     setAmount(expenseQuery.data.amount);
+    if (hasOriginalExpenseDetails(expenseQuery.data)) {
+      setOriginalExpense({
+        originalAmount:
+          expenseQuery.data.originalAmount !== null
+            ? BigMath.abs(expenseQuery.data.originalAmount)
+            : undefined,
+        originalCurrency: parseCurrencyCode(expenseQuery.data.originalCurrency ?? ''),
+        conversionRate: expenseQuery.data.conversionRate ?? undefined,
+      });
+    } else {
+      setOriginalExpense();
+    }
     setParticipants(
       expenseQuery.data.expenseParticipants.map((ep) => ({
         ...ep.user,
@@ -246,6 +261,7 @@ const AddPage: NextPageWithUser<{
     setGroup,
     setPaidBy,
     setParticipants,
+    setOriginalExpense,
     setCronExpression,
     setFileKey,
     getCurrencyHelpersCached,

@@ -11,6 +11,7 @@ import { cn } from '~/lib/utils';
 import type { ExpenseRouter } from '~/server/api/routers/expense';
 import { api } from '~/utils/api';
 import { Separator } from '../ui/separator';
+import { OriginalExpenseSummary } from './OriginalExpenseSummary';
 
 type ExpensesOutput =
   | inferRouterOutputs<ExpenseRouter>['getGroupExpenses']
@@ -114,6 +115,10 @@ const Expense: ExpenseComponent = ({ e, userId }) => {
             {displayName(e.paidByUser, userId)}{' '}
             {t(`ui.expense.user.${e.amount < 0n ? 'received' : 'paid'}`)} {toUIString(e.amount)}
           </p>
+          <OriginalExpenseSummary
+            expense={e}
+            className="max-w-[180px] truncate text-xs text-gray-500"
+          />
         </div>
       </div>
       <div className="min-w-10 shrink-0">

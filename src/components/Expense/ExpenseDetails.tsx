@@ -27,6 +27,7 @@ import { AppDrawer } from '../ui/drawer';
 import { Separator } from '../ui/separator';
 import { Receipt } from './Receipt';
 import { DateSelector } from '../AddExpense/DateSelector';
+import { OriginalExpenseSummary } from './OriginalExpenseSummary';
 
 type ExpenseDetailsOutput = NonNullable<inferRouterOutputs<ExpenseRouter>['getExpenseDetails']>;
 
@@ -70,6 +71,7 @@ const ExpenseDetails: React.FC<ExpenseDetailsProps> = ({ user, expense }) => {
               {expense.transactionId && <Landmark className="text-positive h-4 w-4" />}
             </div>
             <p className="text-2xl font-semibold">{toUIString(expense.amount)}</p>
+            <OriginalExpenseSummary expense={expense} className="text-sm text-gray-500" />
             {!isSameDay(expense.expenseDate, expense.createdAt) ? (
               <p className="text-sm text-gray-500">
                 {toUIDate(expense.expenseDate, { year: true })}

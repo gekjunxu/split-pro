@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { simplifyDebts } from '~/lib/simplify';
 import { createTRPCRouter, groupProcedure, protectedProcedure } from '~/server/api/trpc';
 import { db } from '~/server/db';
+import { normalizeOriginalExpenseFields } from '~/lib/originalExpense';
 import { BigMath, currencyConversion } from '~/utils/numbers';
 
 import {
@@ -134,16 +135,35 @@ export const expenseRouter = createTRPCRouter({
     .mutation(async ({ input: expenses, ctx }) => {
       const results = [];
       for (const input of expenses) {
+        let normalizedInput: typeof input & {
+          originalAmount: bigint | null;
+          originalCurrency: string | null;
+          conversionRate: number | null;
+        };
+        try {
+          normalizedInput = normalizeOriginalExpenseFields({
+            ...input,
+            originalAmount: input.originalAmount ?? null,
+            originalCurrency: input.originalCurrency ?? null,
+            conversionRate: input.conversionRate ?? null,
+          });
+        } catch (error) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message:
+              error instanceof Error ? error.message : 'Invalid original expense conversion data',
+          });
+        }
         if (input.expenseId) {
           await validateEditExpensePermission(input.expenseId, ctx.session.user.id);
         }
-        if (input.splitType === SplitType.CURRENCY_CONVERSION) {
+        if (normalizedInput.splitType === SplitType.CURRENCY_CONVERSION) {
           throw new TRPCError({ code: 'BAD_REQUEST', message: 'Invalid split type' });
         }
 
-        if (input.groupId !== null) {
+        if (normalizedInput.groupId !== null) {
           const group = await db.group.findUnique({
-            where: { id: input.groupId },
+            where: { id: normalizedInput.groupId },
             select: { archivedAt: true },
           });
           if (!group) {
@@ -155,16 +175,17 @@ export const expenseRouter = createTRPCRouter({
         }
 
         try {
-          const expense = input.expenseId
-            ? await editExpense(input, ctx.session.user.id)
-            : await createExpense(input, ctx.session.user.id);
+          const expense = normalizedInput.expenseId
+            ? await editExpense(normalizedInput, ctx.session.user.id)
+            : await createExpense(normalizedInput, ctx.session.user.id);
 
           results.push(expense);
         } catch (error) {
           console.error(error);
+          const message = error instanceof Error ? error.message : 'Failed to create expense';
           throw new TRPCError({
             code: 'INTERNAL_SERVER_ERROR',
-            message: 'Failed to create expense',
+            message,
           });
         }
       }
