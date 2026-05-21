@@ -145,7 +145,7 @@ export const OriginalExpenseDetails: React.FC<{
       return;
     }
 
-    if (!/^[0-9]*\.?[0-9]*$/.test(raw)) {
+    if (! /^[0-9]*\.?[0-9]*$/.test(raw)) {
       return;
     }
 

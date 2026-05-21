@@ -56,7 +56,7 @@ export const validateAndNormalizeOriginalExpenseFields = <T extends OriginalExpe
     throw new Error(`Invalid original currency code: ${originalCurrency}`);
   }
 
-  if (!Number.isFinite(conversionRate) || conversionRate <= 0) {
+  if (!Number.isFinite(conversionRate) || 0 >= conversionRate) {
     throw new Error('Conversion rate must be a positive finite number');
   }
 
