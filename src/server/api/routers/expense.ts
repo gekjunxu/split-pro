@@ -20,7 +20,6 @@ import { type CurrencyCode, isCurrencyCode } from '~/lib/currency';
 import { SplitType } from '@prisma/client';
 import { DEFAULT_CATEGORY } from '~/lib/category';
 import { getUserMap } from './user';
-import { FriendBalance } from '~/components/Friend/FriendBalance';
 
 const validateOriginalExpenseInput = <
   T extends {
