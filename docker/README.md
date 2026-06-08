@@ -27,6 +27,66 @@ This will start the PostgreSQL database and the Splitpro application containers.
 
 6. Access the Splitpro application by visiting `http://localhost:3000` in your web browser.
 
+## DigitalOcean Droplet with auto-deploy from GitHub
+
+If you want to keep full expense history and auto-deploy on every commit to `main`, this is the recommended setup.
+
+### Why this setup
+
+- PostgreSQL stays on persistent disk (`database` volume).
+- Receipts stay on persistent disk (`uploads` volume).
+- You can rebuild and deploy directly from your branch source on each push.
+
+### 1) Prepare the droplet
+
+1. Create a droplet with Docker + Docker Compose installed.
+2. Clone this repository to a stable path (for example `/opt/split-pro`).
+3. Copy `.env.example` to `.env` and configure required variables.
+4. Start once manually:
+
+```bash
+cd /opt/split-pro
+docker compose -f docker/prod/compose.yml -f docker/prod/compose.source.override.yml up -d --build
+```
+
+The `compose.source.override.yml` file builds SplitPro from your checked out branch source instead of using the prebuilt image tag.
+
+### 2) Enable persistent data and backups
+
+- Keep Docker named volumes (`database`, `uploads`) attached to the droplet.
+- Enable DigitalOcean backups/snapshots for the droplet.
+- Create regular PostgreSQL dumps:
+
+```bash
+docker exec -t splitpro-db pg_dumpall -c -U postgres > splitpro_backup.sql
+```
+
+Store dump files outside the droplet or sync them to external object storage.
+
+### 3) Configure GitHub Actions deployment
+
+This repository includes `.github/workflows/deploy-droplet.yml`:
+
+- Auto deploy on `push` to `main`.
+- Manual deploy with selected branch via **Run workflow**.
+
+Add these repository secrets:
+
+- `DEPLOY_HOST`: droplet IP or hostname
+- `DEPLOY_PORT`: SSH port (usually `22`)
+- `DEPLOY_USER`: SSH user
+- `DEPLOY_SSH_KEY`: private key for deploy user
+- `DEPLOY_PATH`: repository path on droplet (for example `/opt/split-pro`)
+
+### 4) Branch override deploys
+
+To deploy a non-main branch:
+
+1. Open **GitHub Actions**.
+2. Select **Deploy to Droplet** workflow.
+3. Click **Run workflow**.
+4. Set `branch` to the branch you want.
+
 ### Minimal .env example
 
 ```bash

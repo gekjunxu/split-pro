@@ -1,0 +1,9 @@
+services:
+  splitpro:
+    image: splitpro-local:latest
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+      args:
+        APP_VERSION: selfhost
+        GIT_SHA: local

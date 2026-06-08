@@ -1,0 +1,58 @@
+name: Deploy to Droplet
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: Branch to deploy
+        required: true
+        default: main
+
+concurrency:
+  group: deploy-droplet
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy with Docker Compose
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Resolve target branch
+        id: branch
+        run: echo "value=${{ github.event_name == 'workflow_dispatch' && github.event.inputs.branch || github.ref_name }}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up SSH agent
+        uses: webfactory/ssh-agent@v0.9.1
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+
+      - name: Add droplet host key
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || '22' }}
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -p "$DEPLOY_PORT" "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+
+      - name: Deploy on droplet
+        env:
+          DEPLOY_BRANCH: ${{ steps.branch.outputs.value }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || '22' }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          ssh -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "DEPLOY_PATH='$DEPLOY_PATH' DEPLOY_BRANCH='$DEPLOY_BRANCH' bash -s" <<'EOF'
+          set -euo pipefail
+          cd "$DEPLOY_PATH"
+          git fetch origin "$DEPLOY_BRANCH"
+          git checkout "$DEPLOY_BRANCH"
+          git pull --ff-only origin "$DEPLOY_BRANCH"
+          docker compose -f docker/prod/compose.yml -f docker/prod/compose.source.override.yml up -d --build --remove-orphans
+          docker image prune -f
+          EOF
