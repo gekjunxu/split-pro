@@ -5,5 +5,5 @@ services:
       context: ../..
       dockerfile: Dockerfile
       args:
-        APP_VERSION: selfhost
-        GIT_SHA: local
+        APP_VERSION: ${APP_VERSION:-selfhost}
+        GIT_SHA: ${GIT_SHA:-local}

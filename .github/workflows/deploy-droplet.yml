@@ -26,6 +26,26 @@ jobs:
         id: branch
         run: echo "value=${{ github.event_name == 'workflow_dispatch' && github.event.inputs.branch || github.ref_name }}" >> "$GITHUB_OUTPUT"
 
+      - name: Checkout repository metadata
+        uses: actions/checkout@v6
+
+      - name: Validate target branch
+        id: validated_branch
+        env:
+          TARGET_BRANCH: ${{ steps.branch.outputs.value }}
+        run: |
+          set -euo pipefail
+          if ! git check-ref-format --branch "$TARGET_BRANCH" > /dev/null 2>&1; then
+            echo "Invalid branch: $TARGET_BRANCH"
+            exit 1
+          fi
+          if [[ "$TARGET_BRANCH" == refs/* ]] || [[ "$TARGET_BRANCH" == *".."* ]] || [[ "$TARGET_BRANCH" == -* ]]; then
+            echo "Invalid branch: $TARGET_BRANCH"
+            exit 1
+          fi
+          git ls-remote --exit-code --heads origin "$TARGET_BRANCH" > /dev/null
+          echo "value=$TARGET_BRANCH" >> "$GITHUB_OUTPUT"
+
       - name: Set up SSH agent
         uses: webfactory/ssh-agent@v0.9.1
         with:
@@ -41,18 +61,33 @@ jobs:
 
       - name: Deploy on droplet
         env:
-          DEPLOY_BRANCH: ${{ steps.branch.outputs.value }}
+          DEPLOY_BRANCH: ${{ steps.validated_branch.outputs.value }}
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
           DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || '22' }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
         run: |
-          ssh -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "DEPLOY_PATH='$DEPLOY_PATH' DEPLOY_BRANCH='$DEPLOY_BRANCH' bash -s" <<'EOF'
+          ssh -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" bash -s -- "$DEPLOY_PATH" "$DEPLOY_BRANCH" <<'EOF'
           set -euo pipefail
+          DEPLOY_PATH="$1"
+          DEPLOY_BRANCH="$2"
+          if ! git check-ref-format --branch "$DEPLOY_BRANCH" > /dev/null 2>&1; then
+            echo "Invalid branch: $DEPLOY_BRANCH"
+            exit 1
+          fi
+          if [[ "$DEPLOY_BRANCH" == refs/* ]] || [[ "$DEPLOY_BRANCH" == *".."* ]] || [[ "$DEPLOY_BRANCH" == -* ]]; then
+            echo "Invalid branch: $DEPLOY_BRANCH"
+            exit 1
+          fi
           cd "$DEPLOY_PATH"
           git fetch origin "$DEPLOY_BRANCH"
           git checkout "$DEPLOY_BRANCH"
-          git pull --ff-only origin "$DEPLOY_BRANCH"
-          docker compose -f docker/prod/compose.yml -f docker/prod/compose.source.override.yml up -d --build --remove-orphans
-          docker image prune -f
+          git reset --hard "origin/$DEPLOY_BRANCH"
+          APP_VERSION="$DEPLOY_BRANCH" \
+          GIT_SHA="$(git rev-parse HEAD)" \
+            docker compose \
+              -f docker/prod/compose.yml \
+              -f docker/prod/compose.source.override.yml \
+              up -d --build --remove-orphans
+          docker image prune -f --filter "until=24h"
           EOF

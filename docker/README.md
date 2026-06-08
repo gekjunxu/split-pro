@@ -58,7 +58,8 @@ The `compose.source.override.yml` file builds SplitPro from your checked out bra
 - Create regular PostgreSQL dumps:
 
 ```bash
-docker exec -t splitpro-db pg_dumpall -c -U postgres > splitpro_backup.sql
+mkdir -p /opt/split-pro/backups
+docker exec -t <postgres-container-name> pg_dumpall -c -U postgres | gzip > "/opt/split-pro/backups/splitpro_$(date +%F_%H-%M-%S).sql.gz"
 ```
 
 Store dump files outside the droplet or sync them to external object storage.
