@@ -20,12 +20,18 @@ export type CreateExpense = Omit<
   | 'deletedBy'
   | 'expenseDate'
   | 'fileKey'
+  | 'originalAmount'
+  | 'originalCurrency'
+  | 'conversionRate'
   | 'transactionId'
   | 'conversionToId'
   | 'recurrenceId'
 > & {
   expenseDate?: Date;
   fileKey?: string;
+  originalAmount?: bigint | null;
+  originalCurrency?: string | null;
+  conversionRate?: number | null;
   expenseId?: string;
   transactionId?: string;
   participants: Omit<ExpenseParticipant, 'expenseId'>[];
@@ -48,6 +54,9 @@ export const createExpenseSchema = z.object({
   ]),
   currency: z.string(),
   participants: z.array(z.object({ userId: z.number(), amount: z.bigint() })),
+  originalAmount: z.bigint().nullable().optional(),
+  originalCurrency: z.string().nullable().optional(),
+  conversionRate: z.number().positive().max(Number.MAX_SAFE_INTEGER).nullable().optional(),
   fileKey: z.string().optional(),
   transactionId: z.string().optional(),
   expenseDate: z.date().optional(),

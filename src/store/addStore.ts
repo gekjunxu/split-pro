@@ -23,6 +23,9 @@ export interface AddExpenseState {
   splitShares: SplitShares;
   description: string;
   currency: CurrencyCode;
+  originalAmount?: bigint;
+  originalCurrency?: CurrencyCode;
+  conversionRate?: number;
   category: string;
   nameOrEmail: string;
   paidBy?: User;
@@ -48,6 +51,12 @@ export interface AddExpenseState {
     removeParticipant: (userId: number) => void;
     removeLastParticipant: () => void;
     setCurrency: (currency: CurrencyCode) => void;
+    setOriginalExpense: (data?: {
+      originalAmount?: bigint;
+      originalCurrency?: CurrencyCode;
+      conversionRate?: number;
+    }) => void;
+    clearOriginalExpense: () => void;
     setCategory: (category: string) => void;
     setNameOrEmail: (nameOrEmail: string) => void;
     setPaidBy: (user: User) => void;
@@ -202,6 +211,18 @@ export const useAddExpenseStore = create<AddExpenseState>()((set) => ({
       });
     },
     setCurrency: (currency) => set({ currency }),
+    setOriginalExpense: (data) =>
+      set({
+        originalAmount: data?.originalAmount,
+        originalCurrency: data?.originalCurrency,
+        conversionRate: data?.conversionRate,
+      }),
+    clearOriginalExpense: () =>
+      set({
+        originalAmount: undefined,
+        originalCurrency: undefined,
+        conversionRate: undefined,
+      }),
     setCategory: (category) => set({ category }),
     setNameOrEmail: (nameOrEmail) => set({ nameOrEmail, showFriends: 0 < nameOrEmail.length }),
     setPaidBy: (paidBy) => set((state) => calculateParticipantSplit({ ...state, paidBy })),
@@ -229,6 +250,9 @@ export const useAddExpenseStore = create<AddExpenseState>()((set) => ({
         description: '',
         fileKey: '',
         category: DEFAULT_CATEGORY,
+        originalAmount: undefined,
+        originalCurrency: undefined,
+        conversionRate: undefined,
         splitType: SplitType.EQUAL,
         group: undefined,
         amountStr: '',
@@ -258,6 +282,9 @@ export const useAddExpenseStore = create<AddExpenseState>()((set) => ({
           expenseDate: singleTransaction.date,
           description: singleTransaction.description,
           currency: singleTransaction.currency,
+          originalAmount: undefined,
+          originalCurrency: undefined,
+          conversionRate: undefined,
           amountStr: singleTransaction.amountStr,
           transactionId: singleTransaction.transactionId,
         };

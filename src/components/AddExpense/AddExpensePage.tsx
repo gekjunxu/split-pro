@@ -23,9 +23,10 @@ import { SelectUserOrGroup } from './SelectUserOrGroup';
 import { PayerSelectionForm, SplitExpenseForm } from './SplitTypeSection';
 import { UploadFile } from './UploadFile';
 import { UserInput } from './UserInput';
+import { OriginalExpenseDetails } from './OriginalExpenseDetails';
 import { CurrencyInput } from '../ui/currency-input';
 import { CurrencyConversion } from '../Friend/CurrencyConversion';
-import { currencyConversion } from '~/utils/numbers';
+import { BigMath, currencyConversion } from '~/utils/numbers';
 import { CurrencyConversionIcon } from '../ui/categoryIcons';
 import { useSession } from 'next-auth/react';
 
@@ -42,6 +43,9 @@ export const AddOrEditExpensePage: React.FC<{
   const currency = useAddExpenseStore((s) => s.currency);
   const category = useAddExpenseStore((s) => s.category);
   const description = useAddExpenseStore((s) => s.description);
+  const originalAmount = useAddExpenseStore((s) => s.originalAmount);
+  const originalCurrency = useAddExpenseStore((s) => s.originalCurrency);
+  const conversionRate = useAddExpenseStore((s) => s.conversionRate);
   const isFileUploading = useAddExpenseStore((s) => s.isFileUploading);
   const amtStr = useAddExpenseStore((s) => s.amountStr);
   const expenseDate = useAddExpenseStore((s) => s.expenseDate);
@@ -64,6 +68,8 @@ export const AddOrEditExpensePage: React.FC<{
     setDescription,
     setAmount,
     setAmountStr,
+    setOriginalExpense,
+    clearOriginalExpense,
     resetState,
     setSplitScreenOpen,
     setExpenseDate,
@@ -86,8 +92,9 @@ export const AddOrEditExpensePage: React.FC<{
 
       previousCurrencyRef.current = currency;
       setCurrency(newCurrency);
+      clearOriginalExpense();
     },
-    [currency, setCurrency, updateProfile],
+    [clearOriginalExpense, currency, setCurrency, updateProfile],
   );
 
   const router = useRouter();
@@ -101,8 +108,9 @@ export const AddOrEditExpensePage: React.FC<{
         setAmount(bigIntValue);
       }
       previousCurrencyRef.current = null;
+      clearOriginalExpense();
     },
-    [setAmount, setAmountStr],
+    [clearOriginalExpense, setAmount, setAmountStr],
   );
 
   const addExpense = useCallback(async () => {
@@ -133,6 +141,9 @@ export const AddOrEditExpensePage: React.FC<{
               userId: p.id,
               amount: (p.amount ?? 0n) * sign,
             })),
+            originalAmount: originalAmount !== undefined ? originalAmount * sign : undefined,
+            originalCurrency,
+            conversionRate,
             paidBy: paidBy.id,
             category,
             fileKey,
@@ -203,6 +214,9 @@ export const AddOrEditExpensePage: React.FC<{
     amount,
     participants,
     category,
+    originalAmount,
+    originalCurrency,
+    conversionRate,
     expenseDate,
     expenseId,
     router,
@@ -253,9 +267,37 @@ export const AddOrEditExpensePage: React.FC<{
       setAmount(targetAmount);
       setAmountStr(getCurrencyHelpersCached(currency).toUIString(targetAmount, false, true));
       previousCurrencyRef.current = null;
+      clearOriginalExpense();
     },
-    [setAmount, setAmountStr, currency, getCurrencyHelpersCached],
+    [clearOriginalExpense, setAmount, setAmountStr, currency, getCurrencyHelpersCached],
   );
+
+  const onApplyOriginalExpense = useCallback(
+    ({
+      settlementAmount,
+      originalAmount: nextOriginalAmount,
+      originalCurrency: nextOriginalCurrency,
+      conversionRate: nextConversionRate,
+    }: {
+      settlementAmount: bigint;
+      originalAmount: bigint;
+      originalCurrency: CurrencyCode;
+      conversionRate: number;
+    }) => {
+      setAmount(settlementAmount);
+      setAmountStr(getCurrencyHelpersCached(currency).toUIString(settlementAmount, true, true));
+      setOriginalExpense({
+        originalAmount: BigMath.abs(nextOriginalAmount),
+        originalCurrency: nextOriginalCurrency,
+        conversionRate: nextConversionRate,
+      });
+    },
+    [currency, getCurrencyHelpersCached, setAmount, setAmountStr, setOriginalExpense],
+  );
+
+  const onClearOriginalExpense = useCallback(() => {
+    clearOriginalExpense();
+  }, [clearOriginalExpense]);
 
   const currencyConversionComponent = React.useMemo(() => {
     if (
@@ -332,6 +374,18 @@ export const AddOrEditExpensePage: React.FC<{
               rightIcon={currencyConversionComponent}
             />
           </div>
+          <OriginalExpenseDetails
+            expenseDate={expenseDate}
+            settlementAmount={(isNegative ? -1n : 1n) * amount}
+            settlementCurrency={currency}
+            originalAmount={
+              originalAmount !== undefined ? (isNegative ? -1n : 1n) * originalAmount : undefined
+            }
+            originalCurrency={originalCurrency}
+            conversionRate={conversionRate}
+            onApply={onApplyOriginalExpense}
+            onClear={onClearOriginalExpense}
+          />
           <div className="h-[180px]">
             {amount && '' !== description ? (
               <>

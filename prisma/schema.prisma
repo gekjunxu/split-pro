@@ -172,11 +172,14 @@ model Expense {
   name                String
   category            String
   amount              BigInt
+  originalAmount      BigInt?
   splitType           SplitType            @default(EQUAL)
   expenseDate         DateTime             @default(now())
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
   currency            String
+  originalCurrency    String?
+  conversionRate      Float?
   fileKey             String?
   groupId             Int?
   deletedAt           DateTime?
