@@ -128,24 +128,26 @@
     "title": "Currency conversion"
   },
   "cards": {
-    "add_card": "Add card",
+    "add_card": "Add payment source",
+    "add_source": "Add payment source",
     "archived": "Archived",
     "card": "Card",
     "cash_currency": "Cash currency",
     "default_rate": "Default rate",
     "default_rate_placeholder": "Cash currency per settlement currency",
-    "edit_card": "Edit card",
-    "empty": "No cards yet",
+    "edit_card": "Edit payment source",
+    "edit_source": "Edit payment source",
+    "empty": "No payment sources yet",
     "effective_rate": "Effective rate",
     "issuer": "Issuer",
     "name": "Card name",
     "network": "Network",
     "no_card": "No card",
     "notes": "Notes",
-    "saved": "Card saved",
+    "saved": "Payment source saved",
     "settlement_currency": "Settlement currency",
     "starting_balance": "Starting balance",
-    "title": "Cards",
+    "title": "Payment sources",
     "types": {
       "card": "Card",
       "cash": "Cash tranche"
@@ -153,17 +155,17 @@
     "analytics": {
       "average_rates": "Average effective rates",
       "best_average_rate": "Best average {{currency}} rate",
-      "empty": "Add card-attributed overseas expenses to see analytics.",
+      "empty": "Add payment-source-attributed overseas expenses to see analytics.",
       "expense_count": "{{count}} expenses",
       "foreign_by_currency": "Foreign spending by currency",
       "highest_foreign_spend": "Highest foreign spend",
       "insights": "Insights",
-      "most_used_card": "Most used card",
-      "not_enough_data": "More card-attributed expenses are needed for insights.",
+      "most_used_card": "Most used source",
+      "not_enough_data": "More payment-source-attributed expenses are needed for insights.",
       "rate_trends": "Rate trends",
-      "spending_by_card": "Spending by card",
-      "title": "Card analytics",
-      "usage_count": "Card usage count"
+      "spending_by_card": "Spending by source",
+      "title": "Payment source analytics",
+      "usage_count": "Source usage count"
     }
   },
   "errors": {
@@ -361,6 +363,7 @@
       "title": "Group info"
     },
     "group_statistics": {
+      "attributed_by_member": "Attributed expense by member",
       "first_expense": "First expense",
       "no_spending": "No spending",
       "spending_by_member": "Spending by member",

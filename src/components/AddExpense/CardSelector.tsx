@@ -1,4 +1,4 @@
-import { CreditCard } from 'lucide-react';
+import { WalletCards } from 'lucide-react';
 import React, { useCallback } from 'react';
 
 import { api } from '~/utils/api';
@@ -25,7 +25,7 @@ export const CardSelector: React.FC<{
 
   return (
     <div className="flex items-center gap-2 text-sm text-gray-500">
-      <CreditCard className="size-4" />
+      <WalletCards className="size-4" />
       <NativeSelect value={cardId?.toString() ?? ''} onChange={onChange} className="max-w-64">
         <NativeSelectOption value="">No payment source</NativeSelectOption>
         {cardsQuery.data.map((card) => (

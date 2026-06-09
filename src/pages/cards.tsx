@@ -1,4 +1,11 @@
-import { Banknote, CreditCard, PencilIcon, PlusIcon, RotateCcw, Trash2 } from 'lucide-react';
+import {
+  Banknote,
+  CreditCard,
+  PencilIcon,
+  PlusIcon,
+  RotateCcw,
+  Trash2,
+} from 'lucide-react';
 import Head from 'next/head';
 import React, { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
@@ -186,7 +193,7 @@ const CardsPage: NextPageWithUser = () => {
         <div className="flex flex-col gap-4">
           <Button className="w-full gap-2" onClick={onAdd}>
             <PlusIcon className="size-4" />
-            {t('cards.add_card')}
+            {t('cards.add_source')}
           </Button>
           {cardsQuery.data?.length ? (
             cardsQuery.data.map((card) => (
@@ -244,7 +251,7 @@ const CardsPage: NextPageWithUser = () => {
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>{form.id ? t('cards.edit_card') : t('cards.add_card')}</DialogTitle>
+              <DialogTitle>{form.id ? t('cards.edit_source') : t('cards.add_source')}</DialogTitle>
             </DialogHeader>
             <div className="grid gap-3">
               <Input

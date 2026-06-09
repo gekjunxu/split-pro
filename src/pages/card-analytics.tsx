@@ -1,4 +1,4 @@
-import { BarChart3, CreditCard, TrendingUp } from 'lucide-react';
+import { BarChart3, TrendingUp, WalletCards } from 'lucide-react';
 import Head from 'next/head';
 import React from 'react';
 
@@ -64,7 +64,7 @@ const CardAnalyticsPage: NextPageWithUser = () => {
 
             <Section
               title={t('cards.analytics.spending_by_card')}
-              icon={<CreditCard className="size-5" />}
+              icon={<WalletCards className="size-5" />}
             >
               {analytics.spendingByCard.map((entry) => (
                 <Metric
@@ -90,7 +90,7 @@ const CardAnalyticsPage: NextPageWithUser = () => {
 
             <Section
               title={t('cards.analytics.usage_count')}
-              icon={<CreditCard className="size-5" />}
+              icon={<WalletCards className="size-5" />}
             >
               {analytics.cardUsageCounts.map((entry) => (
                 <Metric

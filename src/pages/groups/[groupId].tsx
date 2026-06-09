@@ -57,6 +57,7 @@ const BalancePage: NextPageWithUser<{
   const groupDetailQuery = api.group.getGroupDetails.useQuery({ groupId });
   const groupTotalQuery = api.group.getGroupTotals.useQuery({ groupId });
   const groupMemberSpendingQuery = api.group.getGroupMemberSpendingTotals.useQuery({ groupId });
+  const groupMemberAttributedQuery = api.group.getGroupMemberAttributedTotals.useQuery({ groupId });
   const expensesQuery = api.expense.getGroupExpenses.useQuery({ groupId });
   const deleteGroupMutation = api.group.delete.useMutation();
   const leaveGroupMutation = api.group.leaveGroup.useMutation();
@@ -189,6 +190,37 @@ const BalancePage: NextPageWithUser<{
                   </p>
                   <div className="mt-3 flex flex-col gap-3">
                     {groupMemberSpendingQuery.data?.map(({ user: member, totals }) => (
+                      <div
+                        key={member.id}
+                        className="flex items-center justify-between gap-3 rounded-md border p-3"
+                      >
+                        <div className="flex min-w-0 items-center gap-2">
+                          <EntityAvatar entity={member} size={28} />
+                          <span className="truncate">{displayName(member, user.id)}</span>
+                        </div>
+                        <div className="shrink-0 text-right text-sm">
+                          {Object.entries(totals).length ? (
+                            Object.entries(totals).map(([currency, amount]) => (
+                              <div key={currency}>
+                                {getCurrencyHelpersCached(currency).toUIString(amount)}
+                              </div>
+                            ))
+                          ) : (
+                            <span className="text-gray-500">
+                              {t('group_details.group_statistics.no_spending')}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="mt-8">
+                  <p className="font-semibold">
+                    {t('group_details.group_statistics.attributed_by_member')}
+                  </p>
+                  <div className="mt-3 flex flex-col gap-3">
+                    {groupMemberAttributedQuery.data?.map(({ user: member, totals }) => (
                       <div
                         key={member.id}
                         className="flex items-center justify-between gap-3 rounded-md border p-3"

@@ -2,6 +2,7 @@ import { SiGithub, SiX } from '@icons-pack/react-simple-icons';
 import {
   BadgeInfo,
   BarChart3,
+  WalletCards,
   CreditCard,
   Download,
   DownloadCloud,
@@ -127,7 +128,7 @@ const AccountPage: NextPageWithUser<{
           </LanguagePicker>
 
           <AccountButton href="/cards">
-            <CreditCard className="size-5 text-cyan-500" />
+            <WalletCards className="size-5 text-cyan-500" />
             {t('cards.title')}
           </AccountButton>
 

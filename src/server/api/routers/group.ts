@@ -234,6 +234,73 @@ export const groupRouter = createTRPCRouter({
       });
   }),
 
+  getGroupMemberAttributedTotals: groupProcedure.query(async ({ input, ctx }) => {
+    const [members, expenses] = await Promise.all([
+      ctx.db.groupUser.findMany({
+        where: {
+          groupId: input.groupId,
+        },
+        include: {
+          user: true,
+        },
+      }),
+      ctx.db.expense.findMany({
+        where: {
+          groupId: input.groupId,
+          deletedAt: null,
+          splitType: {
+            notIn: [SplitType.SETTLEMENT, SplitType.CURRENCY_CONVERSION],
+          },
+        },
+        select: {
+          amount: true,
+          currency: true,
+          paidBy: true,
+          expenseParticipants: {
+            select: {
+              userId: true,
+              amount: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    const totalsByUser = expenses.reduce<Record<number, Record<string, bigint>>>(
+      (acc, expense) => {
+        expense.expenseParticipants.forEach((participant) => {
+          const attributedAmount =
+            participant.userId === expense.paidBy
+              ? expense.amount - participant.amount
+              : -participant.amount;
+
+          acc[participant.userId] ??= {};
+          acc[participant.userId]![expense.currency] =
+            (acc[participant.userId]![expense.currency] ?? 0n) + attributedAmount;
+        });
+        return acc;
+      },
+      {},
+    );
+
+    return members
+      .map(({ user }) => ({
+        user,
+        totals: totalsByUser[user.id] ?? {},
+      }))
+      .sort((a, b) => {
+        const aMax = Object.values(a.totals).reduce(
+          (max, amount) => (amount > max ? amount : max),
+          0n,
+        );
+        const bMax = Object.values(b.totals).reduce(
+          (max, amount) => (amount > max ? amount : max),
+          0n,
+        );
+        return Number(bMax - aMax);
+      });
+  }),
+
   addMembers: groupProcedure
     .input(z.object({ userIds: z.array(z.number()) }))
     .mutation(async ({ input, ctx }) => {
