@@ -20,6 +20,7 @@ import { type CurrencyCode, isCurrencyCode } from '~/lib/currency';
 import { SplitType } from '@prisma/client';
 import { DEFAULT_CATEGORY } from '~/lib/category';
 import { getUserMap } from './user';
+import { assertCardOwner } from './card';
 
 const validateOriginalExpenseInput = <
   T extends {
@@ -167,6 +168,7 @@ export const expenseRouter = createTRPCRouter({
         if (normalizedInput.splitType === SplitType.CURRENCY_CONVERSION) {
           throw new TRPCError({ code: 'BAD_REQUEST', message: 'Invalid split type' });
         }
+        await assertCardOwner(normalizedInput.cardId, ctx.session.user.id);
 
         if (normalizedInput.groupId !== null) {
           const group = await db.group.findUnique({
@@ -328,6 +330,7 @@ export const expenseRouter = createTRPCRouter({
             },
           },
           paidByUser: true,
+          card: true,
           conversionTo: true,
           group: {
             select: {
@@ -369,6 +372,7 @@ export const expenseRouter = createTRPCRouter({
           expenseParticipants: true,
           paidByUser: true,
           deletedByUser: true,
+          card: true,
           conversionTo: true,
         },
       });
@@ -395,6 +399,7 @@ export const expenseRouter = createTRPCRouter({
           deletedByUser: true,
           updatedByUser: true,
           group: true,
+          card: true,
           recurrence: {
             include: {
               job: {
@@ -481,6 +486,7 @@ export const expenseRouter = createTRPCRouter({
                 id: true,
               },
             },
+            card: true,
           },
         },
       },

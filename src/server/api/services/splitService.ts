@@ -45,6 +45,7 @@ export async function createExpense(
     currency,
     originalCurrency,
     conversionRate,
+    cardId,
     participants,
     expenseDate,
     fileKey,
@@ -103,6 +104,7 @@ export async function createExpense(
         currency,
         originalCurrency,
         conversionRate,
+        cardId,
         expenseParticipants: {
           create: nonZeroParticipants,
         },
@@ -215,6 +217,7 @@ export async function editExpense(
     currency,
     originalCurrency,
     conversionRate,
+    cardId,
     participants,
     expenseDate,
     fileKey,
@@ -275,6 +278,7 @@ export async function editExpense(
         currency,
         originalCurrency,
         conversionRate,
+        cardId,
         expenseParticipants: {
           create: participants,
         },

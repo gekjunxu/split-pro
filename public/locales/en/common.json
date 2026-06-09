@@ -127,6 +127,35 @@
     "success_toast": "Currency conversion set successfully",
     "title": "Currency conversion"
   },
+  "cards": {
+    "add_card": "Add card",
+    "archived": "Archived",
+    "card": "Card",
+    "edit_card": "Edit card",
+    "empty": "No cards yet",
+    "effective_rate": "Effective rate",
+    "issuer": "Issuer",
+    "name": "Card name",
+    "network": "Network",
+    "no_card": "No card",
+    "notes": "Notes",
+    "saved": "Card saved",
+    "title": "Cards",
+    "analytics": {
+      "average_rates": "Average effective rates",
+      "best_average_rate": "Best average {{currency}} rate",
+      "empty": "Add card-attributed overseas expenses to see analytics.",
+      "expense_count": "{{count}} expenses",
+      "foreign_by_currency": "Foreign spending by currency",
+      "highest_foreign_spend": "Highest foreign spend",
+      "insights": "Insights",
+      "most_used_card": "Most used card",
+      "not_enough_data": "More card-attributed expenses are needed for insights.",
+      "spending_by_card": "Spending by card",
+      "title": "Card analytics",
+      "usage_count": "Card usage count"
+    }
+  },
   "errors": {
     "currency_conversion_error": "Error while setting currency conversion",
     "email_invalid": "Email is invalid, please try the signin flow again.",

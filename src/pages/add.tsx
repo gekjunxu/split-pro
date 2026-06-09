@@ -37,6 +37,7 @@ const AddPage: NextPageWithUser<{
     setExpenseDate,
     setCategory,
     setOriginalExpense,
+    setCardId,
     resetState,
     setCronExpression,
     setFileKey,
@@ -217,6 +218,7 @@ const AddPage: NextPageWithUser<{
     } else {
       setOriginalExpense();
     }
+    setCardId(expenseQuery.data.cardId);
     setParticipants(
       expenseQuery.data.expenseParticipants.map((ep) => ({
         ...ep.user,
@@ -262,6 +264,7 @@ const AddPage: NextPageWithUser<{
     setPaidBy,
     setParticipants,
     setOriginalExpense,
+    setCardId,
     setCronExpression,
     setFileKey,
     getCurrencyHelpersCached,

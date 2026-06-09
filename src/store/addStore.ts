@@ -26,6 +26,7 @@ export interface AddExpenseState {
   originalAmount?: bigint;
   originalCurrency?: CurrencyCode;
   conversionRate?: number;
+  cardId?: number | null;
   category: string;
   nameOrEmail: string;
   paidBy?: User;
@@ -56,6 +57,7 @@ export interface AddExpenseState {
       originalCurrency?: CurrencyCode;
       conversionRate?: number;
     }) => void;
+    setCardId: (cardId?: number | null) => void;
     clearOriginalExpense: () => void;
     setCategory: (category: string) => void;
     setNameOrEmail: (nameOrEmail: string) => void;
@@ -223,6 +225,7 @@ export const useAddExpenseStore = create<AddExpenseState>()((set) => ({
         originalCurrency: undefined,
         conversionRate: undefined,
       }),
+    setCardId: (cardId) => set({ cardId }),
     setCategory: (category) => set({ category }),
     setNameOrEmail: (nameOrEmail) => set({ nameOrEmail, showFriends: 0 < nameOrEmail.length }),
     setPaidBy: (paidBy) => set((state) => calculateParticipantSplit({ ...state, paidBy })),
@@ -253,6 +256,7 @@ export const useAddExpenseStore = create<AddExpenseState>()((set) => ({
         originalAmount: undefined,
         originalCurrency: undefined,
         conversionRate: undefined,
+        cardId: undefined,
         splitType: SplitType.EQUAL,
         group: undefined,
         amountStr: '',
@@ -285,6 +289,7 @@ export const useAddExpenseStore = create<AddExpenseState>()((set) => ({
           originalAmount: undefined,
           originalCurrency: undefined,
           conversionRate: undefined,
+          cardId: undefined,
           amountStr: singleTransaction.amountStr,
           transactionId: singleTransaction.transactionId,
         };

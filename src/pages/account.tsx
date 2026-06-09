@@ -1,6 +1,7 @@
 import { SiGithub, SiX } from '@icons-pack/react-simple-icons';
 import {
   BadgeInfo,
+  BarChart3,
   CreditCard,
   Download,
   DownloadCloud,
@@ -124,6 +125,16 @@ const AccountPage: NextPageWithUser<{
               {t('account.change_language')}
             </AccountButton>
           </LanguagePicker>
+
+          <AccountButton href="/cards">
+            <CreditCard className="size-5 text-cyan-500" />
+            {t('cards.title')}
+          </AccountButton>
+
+          <AccountButton href="/card-analytics">
+            <BarChart3 className="size-5 text-emerald-500" />
+            {t('cards.analytics.title')}
+          </AccountButton>
 
           <BankConnection
             bankConnectionEnabled={bankConnectionEnabled}

@@ -63,11 +63,13 @@ describe('validateAndNormalizeOriginalExpenseFields', () => {
       originalAmount: 1250n,
       originalCurrency: 'JPY',
       conversionRate: 0.0091,
+      cardId: 1,
     });
 
     expect(normalized.originalAmount).toBe(1250n);
     expect(normalized.originalCurrency).toBe('JPY');
     expect(normalized.conversionRate).toBe(0.0091);
+    expect(normalized.cardId).toBe(1);
   });
 
   it('splits a foreign-currency settlement amount evenly for balances', () => {
@@ -77,6 +79,22 @@ describe('validateAndNormalizeOriginalExpenseFields', () => {
       originalAmount: 1250n,
       originalCurrency: 'JPY',
       conversionRate: 0.0091,
+    });
+
+    const result = calculateParticipantSplit(createEqualSplitState(normalized.amount));
+
+    expect(result.participants[0]?.amount).toBe(569n);
+    expect(result.participants[1]?.amount).toBe(-569n);
+  });
+
+  it('does not change balance splits when a card is attached', () => {
+    const normalized = validateAndNormalizeOriginalExpenseFields({
+      amount: 1138n,
+      currency: 'SGD',
+      originalAmount: 1250n,
+      originalCurrency: 'JPY',
+      conversionRate: 0.0091,
+      cardId: 1,
     });
 
     const result = calculateParticipantSplit(createEqualSplitState(normalized.amount));

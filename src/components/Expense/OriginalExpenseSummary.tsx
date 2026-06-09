@@ -10,6 +10,7 @@ export const OriginalExpenseSummary: React.FC<{
     originalAmount?: bigint | null;
     originalCurrency?: string | null;
     conversionRate?: number | null;
+    card?: { name: string } | null;
   };
   className?: string;
 }> = ({ expense, className }) => {
@@ -20,7 +21,7 @@ export const OriginalExpenseSummary: React.FC<{
       return null;
     }
 
-    return t('ui.expense.original_summary', {
+    const originalSummary = t('ui.expense.original_summary', {
       amount: getCurrencyHelpersCached(expense.originalCurrency).toUIString(
         expense.originalAmount ?? 0n,
       ),
@@ -28,6 +29,12 @@ export const OriginalExpenseSummary: React.FC<{
       settlementCurrency: expense.currency,
       originalCurrency: expense.originalCurrency,
     });
+
+    if (!expense.card) {
+      return originalSummary;
+    }
+
+    return `${originalSummary} • ${t('cards.card')}: ${expense.card.name}`;
   }, [expense, getCurrencyHelpersCached, t]);
 
   if (!summary) {

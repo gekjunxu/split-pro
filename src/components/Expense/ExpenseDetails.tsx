@@ -28,6 +28,7 @@ import { Separator } from '../ui/separator';
 import { Receipt } from './Receipt';
 import { DateSelector } from '../AddExpense/DateSelector';
 import { OriginalExpenseSummary } from './OriginalExpenseSummary';
+import { formatConversionRate, hasOriginalExpenseDetails } from '~/lib/originalExpense';
 
 type ExpenseDetailsOutput = NonNullable<inferRouterOutputs<ExpenseRouter>['getExpenseDetails']>;
 
@@ -72,6 +73,17 @@ const ExpenseDetails: React.FC<ExpenseDetailsProps> = ({ user, expense }) => {
             </div>
             <p className="text-2xl font-semibold">{toUIString(expense.amount)}</p>
             <OriginalExpenseSummary expense={expense} className="text-sm text-gray-500" />
+            {hasOriginalExpenseDetails(expense) && (
+              <div className="grid gap-1 text-sm text-gray-500">
+                <p>
+                  {t('cards.card')}: {expense.card?.name ?? t('cards.no_card')}
+                </p>
+                <p>
+                  {t('cards.effective_rate')}: {formatConversionRate(expense.conversionRate ?? 0)}{' '}
+                  {expense.currency}/{expense.originalCurrency}
+                </p>
+              </div>
+            )}
             {!isSameDay(expense.expenseDate, expense.createdAt) ? (
               <p className="text-sm text-gray-500">
                 {toUIDate(expense.expenseDate, { year: true })}

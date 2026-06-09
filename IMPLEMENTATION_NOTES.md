@@ -44,3 +44,32 @@ Existing expenses remain valid because all new fields are nullable.
 - No payment methods
 - No card analytics
 - No new FX providers
+
+# Travel Wallet and card analytics
+
+## Data model
+
+- Added `Card` as a user-owned wallet item with optional issuer, network, notes, and `archivedAt`.
+- Added nullable `Expense.cardId` with `ON DELETE SET NULL` so historical expenses remain valid if a card record is removed later.
+- Archived cards are hidden from expense entry but preserved for historical analytics.
+
+## Expense behavior
+
+- Card attribution is optional and is stored beside the existing overseas metadata.
+- `Expense.amount` and `Expense.currency` remain the canonical settlement values.
+- Balance, settlement, participant split, and simplification logic continue to read the same fields as before.
+
+## Analytics
+
+- Card analytics use only stored expense data. No external FX APIs are called.
+- Spending by card is grouped by settlement currency.
+- Foreign spending by currency is grouped by original currency.
+- Average effective rates use stored `Expense.conversionRate` values.
+- Insights require at least three relevant samples before naming a most-used or best-rate card.
+
+## Future expansion points
+
+- Card fee modeling can be added with card-level fee fields or a separate fee schedule table.
+- Cashback tracking can be layered onto cards without changing expense settlement fields.
+- Live FX benchmarking can compare stored effective rates with a new benchmark table or provider cache.
+- Shared card analytics can be added by introducing explicit card-sharing permissions instead of overloading group membership.

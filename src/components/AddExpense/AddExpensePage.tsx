@@ -15,6 +15,7 @@ import { cn } from '~/lib/utils';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import AddBankTransactions from './AddBankTransactions';
+import { CardSelector } from './CardSelector';
 import { CategoryPicker } from './CategoryPicker';
 import { CurrencyPicker } from './CurrencyPicker';
 import { DateSelector } from './DateSelector';
@@ -46,6 +47,7 @@ export const AddOrEditExpensePage: React.FC<{
   const originalAmount = useAddExpenseStore((s) => s.originalAmount);
   const originalCurrency = useAddExpenseStore((s) => s.originalCurrency);
   const conversionRate = useAddExpenseStore((s) => s.conversionRate);
+  const cardId = useAddExpenseStore((s) => s.cardId);
   const isFileUploading = useAddExpenseStore((s) => s.isFileUploading);
   const amtStr = useAddExpenseStore((s) => s.amountStr);
   const expenseDate = useAddExpenseStore((s) => s.expenseDate);
@@ -69,6 +71,7 @@ export const AddOrEditExpensePage: React.FC<{
     setAmount,
     setAmountStr,
     setOriginalExpense,
+    setCardId,
     clearOriginalExpense,
     resetState,
     setSplitScreenOpen,
@@ -144,6 +147,7 @@ export const AddOrEditExpensePage: React.FC<{
             originalAmount: originalAmount !== undefined ? originalAmount * sign : undefined,
             originalCurrency,
             conversionRate,
+            cardId,
             paidBy: paidBy.id,
             category,
             fileKey,
@@ -217,6 +221,7 @@ export const AddOrEditExpensePage: React.FC<{
     originalAmount,
     originalCurrency,
     conversionRate,
+    cardId,
     expenseDate,
     expenseId,
     router,
@@ -233,6 +238,7 @@ export const AddOrEditExpensePage: React.FC<{
     cronExpression,
     multipleTransactions,
     setSingleTransaction,
+    setCardId,
     update,
   ]);
 
@@ -386,6 +392,7 @@ export const AddOrEditExpensePage: React.FC<{
             onApply={onApplyOriginalExpense}
             onClear={onClearOriginalExpense}
           />
+          <CardSelector cardId={cardId} onCardPick={setCardId} />
           <div className="h-[180px]">
             {amount && '' !== description ? (
               <>
