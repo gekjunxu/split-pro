@@ -224,7 +224,7 @@ const SingleRateTrend: React.FC<{
   return (
     <div className="grid gap-2 rounded-md border p-3">
       <div className="flex items-center justify-between gap-3 text-sm">
-        <span className="font-medium">{firstSeries.cardName}</span>
+        <span className="font-medium">{entry.cardName}</span>
         <span className="text-gray-500">{entry.currency}</span>
       </div>
       <svg viewBox={`0 0 ${width} ${height}`} className="h-40 w-full">
