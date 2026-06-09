@@ -184,6 +184,56 @@ export const groupRouter = createTRPCRouter({
     return totals;
   }),
 
+  getGroupMemberSpendingTotals: groupProcedure.query(async ({ input, ctx }) => {
+    const [members, totals] = await Promise.all([
+      ctx.db.groupUser.findMany({
+        where: {
+          groupId: input.groupId,
+        },
+        include: {
+          user: true,
+        },
+      }),
+      ctx.db.expense.groupBy({
+        by: ['paidBy', 'currency'],
+        _sum: {
+          amount: true,
+        },
+        where: {
+          groupId: input.groupId,
+          deletedAt: null,
+          splitType: {
+            notIn: [SplitType.SETTLEMENT, SplitType.CURRENCY_CONVERSION],
+          },
+        },
+      }),
+    ]);
+
+    const totalsByUser = totals.reduce<Record<number, Record<string, bigint>>>((acc, total) => {
+      acc[total.paidBy] ??= {};
+      acc[total.paidBy]![total.currency] =
+        (acc[total.paidBy]![total.currency] ?? 0n) + (total._sum.amount ?? 0n);
+      return acc;
+    }, {});
+
+    return members
+      .map(({ user }) => ({
+        user,
+        totals: totalsByUser[user.id] ?? {},
+      }))
+      .sort((a, b) => {
+        const aMax = Object.values(a.totals).reduce(
+          (max, amount) => (amount > max ? amount : max),
+          0n,
+        );
+        const bMax = Object.values(b.totals).reduce(
+          (max, amount) => (amount > max ? amount : max),
+          0n,
+        );
+        return Number(bMax - aMax);
+      });
+  }),
+
   addMembers: groupProcedure
     .input(z.object({ userIds: z.array(z.number()) }))
     .mutation(async ({ input, ctx }) => {

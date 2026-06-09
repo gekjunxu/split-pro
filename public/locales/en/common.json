@@ -362,6 +362,8 @@
     },
     "group_statistics": {
       "first_expense": "First expense",
+      "no_spending": "No spending",
+      "spending_by_member": "Spending by member",
       "title": "Group statistics",
       "total_expenses": "Total expenses"
     },
