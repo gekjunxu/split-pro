@@ -1,17 +1,24 @@
+import { SplitType } from '@prisma/client';
 import { TRPCError } from '@trpc/server';
 import { nanoid } from 'nanoid';
 import { z } from 'zod';
 
-import { simplifyDebts } from '~/lib/simplify';
-import { createTRPCRouter, groupProcedure, protectedProcedure } from '~/server/api/trpc';
-import { sendGroupSimplifyDebtsToggleNotification } from '~/server/api/services/notificationService';
-import { SplitType } from '@prisma/client';
+import {
+  buildPaymentSourceAnalyticsCsv,
+  buildTravelExpensesCsv,
+  createCsvFileName,
+} from '~/lib/csvExport';
 import {
   defaultSplitInputSchema,
   deserializeDefaultSplit,
   parseSerializedDefaultSplit,
   serializeDefaultSplit,
 } from '~/lib/defaultSplit';
+import { simplifyDebts } from '~/lib/simplify';
+import {
+  sendGroupSimplifyDebtsToggleNotification,
+} from '~/server/api/services/notificationService';
+import { createTRPCRouter, groupProcedure, protectedProcedure } from '~/server/api/trpc';
 
 export const groupRouter = createTRPCRouter({
   create: protectedProcedure
@@ -299,6 +306,91 @@ export const groupRouter = createTRPCRouter({
         );
         return Number(bMax - aMax);
       });
+  }),
+
+  exportExpensesCsv: groupProcedure.mutation(async ({ input, ctx }) => {
+    const [group, expenses] = await Promise.all([
+      ctx.db.group.findUnique({
+        where: {
+          id: input.groupId,
+        },
+        select: {
+          name: true,
+        },
+      }),
+      ctx.db.expense.findMany({
+        where: {
+          groupId: input.groupId,
+          deletedAt: null,
+        },
+        orderBy: [{ expenseDate: 'asc' }, { createdAt: 'asc' }],
+        include: {
+          addedByUser: true,
+          card: true,
+          expenseNotes: {
+            orderBy: {
+              createdAt: 'asc',
+            },
+          },
+          expenseParticipants: {
+            include: {
+              user: true,
+            },
+          },
+          paidByUser: true,
+        },
+      }),
+    ]);
+
+    if (!group) {
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'Group not found' });
+    }
+
+    return {
+      filename: createCsvFileName({
+        prefix: 'expenses',
+        groupName: group.name,
+      }),
+      csv: buildTravelExpensesCsv(expenses),
+    };
+  }),
+
+  exportPaymentSourceAnalyticsCsv: groupProcedure.mutation(async ({ input, ctx }) => {
+    const [group, expenses] = await Promise.all([
+      ctx.db.group.findUnique({
+        where: {
+          id: input.groupId,
+        },
+        select: {
+          name: true,
+        },
+      }),
+      ctx.db.expense.findMany({
+        where: {
+          groupId: input.groupId,
+          deletedAt: null,
+          splitType: {
+            notIn: [SplitType.SETTLEMENT, SplitType.CURRENCY_CONVERSION],
+          },
+        },
+        orderBy: [{ expenseDate: 'asc' }, { createdAt: 'asc' }],
+        include: {
+          card: true,
+        },
+      }),
+    ]);
+
+    if (!group) {
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'Group not found' });
+    }
+
+    return {
+      filename: createCsvFileName({
+        prefix: 'payment-source-analytics',
+        groupName: group.name,
+      }),
+      csv: buildPaymentSourceAnalyticsCsv(expenses),
+    };
   }),
 
   addMembers: groupProcedure

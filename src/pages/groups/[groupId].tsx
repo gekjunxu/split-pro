@@ -4,6 +4,7 @@ import {
   BarChartHorizontal,
   Check,
   ChevronLeft,
+  Download,
   DoorOpen,
   Info,
   Merge,
@@ -66,6 +67,9 @@ const BalancePage: NextPageWithUser<{
   const updateGroupDetailsMutation = api.group.updateGroupDetails.useMutation();
   const upsertDefaultSplitMutation = api.group.upsertDefaultSplit.useMutation();
   const clearDefaultSplitMutation = api.group.clearDefaultSplit.useMutation();
+  const exportExpensesCsvMutation = api.group.exportExpensesCsv.useMutation();
+  const exportPaymentSourceAnalyticsCsvMutation =
+    api.group.exportPaymentSourceAnalyticsCsv.useMutation();
 
   const [isInviteCopied, setIsInviteCopied] = useState(false);
 
@@ -101,6 +105,37 @@ const BalancePage: NextPageWithUser<{
   const canLeave = !groupDetailQuery.data?.groupBalances.find(
     (bal) => 0n !== bal.amount && bal.userId === user.id,
   );
+
+  const downloadCsv = useCallback(({ filename, csv }: { filename: string; csv: string }) => {
+    const blob = new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  }, []);
+
+  const exportExpensesCsv = useCallback(async () => {
+    try {
+      downloadCsv(await exportExpensesCsvMutation.mutateAsync({ groupId }));
+    } catch (error) {
+      toast.error(t('errors.something_went_wrong'));
+      console.error(error);
+    }
+  }, [downloadCsv, exportExpensesCsvMutation, groupId, t]);
+
+  const exportPaymentSourceAnalyticsCsv = useCallback(async () => {
+    try {
+      downloadCsv(await exportPaymentSourceAnalyticsCsvMutation.mutateAsync({ groupId }));
+    } catch (error) {
+      toast.error(t('errors.something_went_wrong'));
+      console.error(error);
+    }
+  }, [downloadCsv, exportPaymentSourceAnalyticsCsvMutation, groupId, t]);
 
   const onGroupDelete = useCallback(() => {
     deleteGroupMutation.mutate(
@@ -183,6 +218,24 @@ const BalancePage: NextPageWithUser<{
                       </Fragment>
                     ) : null,
                   )}
+                </div>
+                <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                  <Button
+                    variant="outline"
+                    onClick={exportExpensesCsv}
+                    disabled={exportExpensesCsvMutation.isPending}
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    {t('group_details.group_statistics.export_expenses_csv')}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={exportPaymentSourceAnalyticsCsv}
+                    disabled={exportPaymentSourceAnalyticsCsvMutation.isPending}
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    {t('group_details.group_statistics.export_payment_sources_csv')}
+                  </Button>
                 </div>
                 <div className="mt-8">
                   <p className="font-semibold">

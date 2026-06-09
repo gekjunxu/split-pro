@@ -364,6 +364,8 @@
     },
     "group_statistics": {
       "attributed_by_member": "Attributed expense by member",
+      "export_expenses_csv": "Export expenses CSV",
+      "export_payment_sources_csv": "Export payment source CSV",
       "first_expense": "First expense",
       "no_spending": "No spending",
       "spending_by_member": "Spending by member",
