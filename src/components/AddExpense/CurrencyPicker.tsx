@@ -1,22 +1,26 @@
 import { memo, useCallback, useMemo } from 'react';
 
-import { CURRENCIES, type CurrencyCode, parseCurrencyCode } from '~/lib/currency';
-
 import { useTranslationWithUtils } from '~/hooks/useTranslationWithUtils';
+import { CURRENCIES, type CurrencyCode, parseCurrencyCode } from '~/lib/currency';
+import { useCurrencyPreferenceStore } from '~/store/currencyPreferenceStore';
+
 import { GeneralPicker } from '../GeneralPicker';
 import { Button } from '../ui/button';
-import { useCurrencyPreferenceStore } from '~/store/currencyPreferenceStore';
 
 function CurrencyPickerInner({
   className,
   currentCurrency,
   onCurrencyPick,
   allowClear = false,
+  preferredCurrencies = [],
+  triggerLabel,
 }: {
   className?: string;
   currentCurrency?: CurrencyCode | null;
   onCurrencyPick: (currency: CurrencyCode | null) => void;
   allowClear?: boolean;
+  preferredCurrencies?: CurrencyCode[];
+  triggerLabel?: string;
 }) {
   const { t, getCurrencyName } = useTranslationWithUtils(['currencies']);
   const { recentCurrencies, addToRecentCurrencies } = useCurrencyPreferenceStore();
@@ -36,24 +40,38 @@ function CurrencyPickerInner({
   const trigger = useMemo(
     () => (
       <Button variant="outline" className="w-[70px] rounded-lg py-2 text-base">
-        {currentCurrency ?? ''}
+        {triggerLabel ?? currentCurrency ?? ''}
       </Button>
     ),
-    [currentCurrency],
+    [currentCurrency, triggerLabel],
   );
 
   const recentCurrencyObjects = useMemo(
     () => recentCurrencies.map((code) => CURRENCIES[code]),
     [recentCurrencies],
   );
+  const preferredCurrencyObjects = useMemo(
+    () => preferredCurrencies.map((code) => CURRENCIES[code]),
+    [preferredCurrencies],
+  );
   const items = useMemo(() => {
     const baseItems = Object.values(CURRENCIES);
+    const prioritizedCodes = [...preferredCurrencies, ...recentCurrencies];
+    const recentOnlyObjects = recentCurrencyObjects.filter(
+      (currency) => !preferredCurrencies.includes(currency.code as CurrencyCode),
+    );
     const uniqueItems = [
-      ...recentCurrencyObjects,
-      ...baseItems.filter((c) => !recentCurrencies.includes(c.code as CurrencyCode)),
+      ...preferredCurrencyObjects,
+      ...recentOnlyObjects,
+      ...baseItems.filter((c) => !prioritizedCodes.includes(c.code as CurrencyCode)),
     ];
     return uniqueItems;
-  }, [recentCurrencyObjects, recentCurrencies]);
+  }, [
+    preferredCurrencies,
+    preferredCurrencyObjects,
+    recentCurrencyObjects,
+    recentCurrencies,
+  ]);
 
   const renderedItems = useMemo(
     () =>

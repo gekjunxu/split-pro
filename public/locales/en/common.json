@@ -349,6 +349,9 @@
         "title": "Are you absolutely sure?"
       },
       "members": "Members",
+      "quick_currencies": "Quick currencies",
+      "quick_currencies_help": "Keep trip currencies at the top of expense currency pickers.",
+      "add_quick_currency": "Add",
       "recalculate_balances": "Recalculate balances",
       "recalculate_balances_details": {
         "description": "If balances do not match expenses, you can recalculate them. Note that it may take some time if the expense count is large. Balances outside the group will not be affected.",
@@ -377,6 +380,7 @@
       "default_split_updated": "Default split updated",
       "default_balance_currency_cleared": "Default balance currency cleared",
       "default_balance_currency_updated": "Default balance currency updated",
+      "quick_currencies_updated": "Quick currencies updated",
       "balances_recalculated": "Balances recalculated successfully",
       "group_archived": "Group archived successfully",
       "group_name_updated": "Updated group details"

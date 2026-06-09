@@ -31,6 +31,7 @@ export const OriginalExpenseDetails: React.FC<{
   originalCurrency?: CurrencyCode;
   conversionRate?: number;
   cardId?: number | null;
+  preferredCurrencies?: CurrencyCode[];
   onApply: (data: {
     settlementAmount: bigint;
     originalAmount: bigint;
@@ -46,6 +47,7 @@ export const OriginalExpenseDetails: React.FC<{
   originalCurrency,
   conversionRate,
   cardId,
+  preferredCurrencies = [],
   onApply,
   onClear,
 }) => {
@@ -374,6 +376,7 @@ export const OriginalExpenseDetails: React.FC<{
                 <CurrencyPicker
                   currentCurrency={localOriginalCurrency}
                   onCurrencyPick={onChangeOriginalCurrency}
+                  preferredCurrencies={preferredCurrencies}
                 />
               </div>
               <div className="flex-1">

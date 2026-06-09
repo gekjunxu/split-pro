@@ -18,7 +18,7 @@ import { type GetServerSideProps } from 'next';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { Fragment, useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { BalanceList } from '~/components/Expense/BalanceList';
 import { ExpenseList } from '~/components/Expense/ExpenseList';
@@ -105,6 +105,10 @@ const BalancePage: NextPageWithUser<{
   const canLeave = !groupDetailQuery.data?.groupBalances.find(
     (bal) => 0n !== bal.amount && bal.userId === user.id,
   );
+  const groupFrequentCurrencies = useMemo(
+    () => groupDetailQuery.data?.frequentCurrencies.filter(isCurrencyCode) ?? [],
+    [groupDetailQuery.data?.frequentCurrencies],
+  );
 
   const downloadCsv = useCallback(({ filename, csv }: { filename: string; csv: string }) => {
     const blob = new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8' });
@@ -136,6 +140,54 @@ const BalancePage: NextPageWithUser<{
       console.error(error);
     }
   }, [downloadCsv, exportPaymentSourceAnalyticsCsvMutation, groupId, t]);
+
+  const updateGroupFrequentCurrencies = useCallback(
+    (frequentCurrencies: string[]) => {
+      if (!groupDetailQuery.data) {
+        return;
+      }
+
+      updateGroupDetailsMutation.mutate(
+        {
+          groupId,
+          name: groupDetailQuery.data.name,
+          image: groupDetailQuery.data.image,
+          defaultCurrency: groupDetailQuery.data.defaultCurrency,
+          frequentCurrencies,
+        },
+        {
+          onSuccess: () => {
+            toast.success(t('group_details.messages.quick_currencies_updated'));
+            void groupDetailQuery.refetch();
+          },
+          onError: () => {
+            toast.error(t('errors.setting_update_failed'));
+          },
+        },
+      );
+    },
+    [groupDetailQuery, groupId, t, updateGroupDetailsMutation],
+  );
+
+  const addGroupFrequentCurrency = useCallback(
+    (currency: string | null) => {
+      if (!isCurrencyCode(currency) || groupFrequentCurrencies.includes(currency)) {
+        return;
+      }
+
+      updateGroupFrequentCurrencies([...groupFrequentCurrencies, currency].slice(0, 8));
+    },
+    [groupFrequentCurrencies, updateGroupFrequentCurrencies],
+  );
+
+  const removeGroupFrequentCurrency = useCallback(
+    (currency: string) => {
+      updateGroupFrequentCurrencies(
+        groupFrequentCurrencies.filter((existingCurrency) => existingCurrency !== currency),
+      );
+    },
+    [groupFrequentCurrencies, updateGroupFrequentCurrencies],
+  );
 
   const onGroupDelete = useCallback(() => {
     deleteGroupMutation.mutate(
@@ -434,6 +486,37 @@ const BalancePage: NextPageWithUser<{
                       );
                     }}
                   />
+                </div>
+
+                <div className="mt-6">
+                  <p className="font-semibold">
+                    {t('group_details.group_info.quick_currencies')}
+                  </p>
+                  <p className="mt-1 text-sm text-gray-500">
+                    {t('group_details.group_info.quick_currencies_help')}
+                  </p>
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    {groupFrequentCurrencies.map((currency) => (
+                      <Button
+                        key={currency}
+                        variant="secondary"
+                        size="sm"
+                        className="h-8 gap-1 rounded-full px-3"
+                        onClick={() => removeGroupFrequentCurrency(currency)}
+                      >
+                        {currency}
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    ))}
+                    {8 > groupFrequentCurrencies.length ? (
+                      <CurrencyPicker
+                        currentCurrency={null}
+                        onCurrencyPick={addGroupFrequentCurrency}
+                        preferredCurrencies={groupFrequentCurrencies}
+                        triggerLabel={t('group_details.group_info.add_quick_currency')}
+                      />
+                    ) : null}
+                  </div>
                 </div>
 
                 <div className="mt-6">

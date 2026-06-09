@@ -8,6 +8,7 @@ import {
   buildTravelExpensesCsv,
   createCsvFileName,
 } from '~/lib/csvExport';
+import { type CurrencyCode, isCurrencyCode } from '~/lib/currency';
 import {
   defaultSplitInputSchema,
   deserializeDefaultSplit,
@@ -19,6 +20,9 @@ import {
   sendGroupSimplifyDebtsToggleNotification,
 } from '~/server/api/services/notificationService';
 import { createTRPCRouter, groupProcedure, protectedProcedure } from '~/server/api/trpc';
+
+const normalizeFrequentCurrencies = (currencies: string[] | null | undefined): CurrencyCode[] =>
+  [...new Set((currencies ?? []).filter(isCurrencyCode))];
 
 export const groupRouter = createTRPCRouter({
   create: protectedProcedure
@@ -558,6 +562,7 @@ export const groupRouter = createTRPCRouter({
         name: z.string().min(1),
         image: z.string().nullable().optional(),
         defaultCurrency: z.string().nullable().optional(),
+        frequentCurrencies: z.array(z.string()).max(8).optional(),
         groupId: z.number(),
       }),
     )
@@ -580,6 +585,9 @@ export const groupRouter = createTRPCRouter({
           name: input.name,
           image: input.image,
           defaultCurrency: input.defaultCurrency,
+          frequentCurrencies: input.frequentCurrencies
+            ? normalizeFrequentCurrencies(input.frequentCurrencies)
+            : undefined,
         },
       });
 

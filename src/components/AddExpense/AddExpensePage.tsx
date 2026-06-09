@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import React, { useCallback } from 'react';
 
-import { type CurrencyCode } from '~/lib/currency';
+import { type CurrencyCode, isCurrencyCode } from '~/lib/currency';
 import { useAddExpenseStore } from '~/store/addStore';
 import { api } from '~/utils/api';
 
@@ -256,6 +256,11 @@ export const AddOrEditExpensePage: React.FC<{
 
   const previousCurrencyRef = React.useRef<CurrencyCode | null>(null);
 
+  const groupQuickCurrencies = React.useMemo(
+    () => group?.frequentCurrencies.filter(isCurrencyCode) ?? [],
+    [group?.frequentCurrencies],
+  );
+
   const onConvertAmount: React.ComponentProps<typeof CurrencyConversion>['onSubmit'] = useCallback(
     ({ amount: absAmount, rate }) => {
       if (!previousCurrencyRef.current) {
@@ -369,7 +374,11 @@ export const AddOrEditExpensePage: React.FC<{
             />
           </div>
           <div className="flex gap-2">
-            <CurrencyPicker currentCurrency={currency} onCurrencyPick={onCurrencyPick} />
+            <CurrencyPicker
+              currentCurrency={currency}
+              onCurrencyPick={onCurrencyPick}
+              preferredCurrencies={groupQuickCurrencies}
+            />
             <CurrencyInput
               placeholder={t('expense_details.add_expense_details.amount_placeholder')}
               currency={currency}
@@ -393,6 +402,7 @@ export const AddOrEditExpensePage: React.FC<{
             cardId={cardId}
             onApply={onApplyOriginalExpense}
             onClear={onClearOriginalExpense}
+            preferredCurrencies={groupQuickCurrencies}
           />
           <div className="h-[180px]">
             {amount && '' !== description ? (
