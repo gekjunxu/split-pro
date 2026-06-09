@@ -59,6 +59,7 @@ model User {
   updatedExpenses      Expense[]            @relation("UpdatedByUser")
   expenseNotes         ExpenseNote[]
   expenseParticipants  ExpenseParticipant[]
+  cards                Card[]
   groups               Group[]
   associatedGroups     GroupUser[]
   friendDefaultSplitsA FriendDefaultSplit[] @relation("FriendDefaultSplitUserA")
@@ -66,6 +67,23 @@ model User {
   sessions             Session[]
   hiddenFriendIds      Int[]                @default([])
 
+  @@schema("public")
+}
+
+model Card {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  name      String
+  issuer    String?
+  network   String?
+  notes     String?
+  archivedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expenses  Expense[]
+
+  @@index([userId])
   @@schema("public")
 }
 
@@ -187,6 +205,7 @@ model Expense {
   updatedBy           Int?
   transactionId       String?
   recurrenceId        Int?
+  cardId              Int?
   id                  String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   conversionToId      String?              @unique @db.Uuid
   addedByUser         User                 @relation("AddedByUser", fields: [addedBy], references: [id], onDelete: Cascade)
@@ -197,11 +216,13 @@ model Expense {
   paidByUser          User                 @relation("PaidByUser", fields: [paidBy], references: [id], onDelete: Cascade)
   recurrence          ExpenseRecurrence?   @relation(fields: [recurrenceId], references: [id], onDelete: SetNull)
   updatedByUser       User?                @relation("UpdatedByUser", fields: [updatedBy], references: [id])
+  card                Card?                @relation(fields: [cardId], references: [id], onDelete: SetNull)
   expenseNotes        ExpenseNote[]
   expenseParticipants ExpenseParticipant[]
 
   @@index([groupId])
   @@index([paidBy])
+  @@index([cardId])
   @@schema("public")
 }
 
