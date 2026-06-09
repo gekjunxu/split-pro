@@ -27,7 +27,10 @@ services:
       - database:/var/lib/postgresql/data
 
   splitpro:
-    image: ossapps/splitpro:latest
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    image: splitpro-local:phase2
     container_name: splitpro
     restart: always
     ports:
