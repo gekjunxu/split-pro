@@ -1,6 +1,6 @@
 import { type Expense } from '@prisma/client';
 
-import { type CurrencyCode, isCurrencyCode } from '~/lib/currency';
+import { CURRENCIES, type CurrencyCode, isCurrencyCode } from '~/lib/currency';
 import {
   MAX_RATE_PRECISION,
   currencyConversion,
@@ -99,3 +99,48 @@ export const calculateSettlementAmount = ({
     from: paidCurrency,
     to: settlementCurrency,
   });
+
+export const calculateExchangeRateFromSettlement = ({
+  paidAmount,
+  paidCurrency,
+  settlementAmount,
+  settlementCurrency,
+}: {
+  paidAmount: bigint;
+  paidCurrency: CurrencyCode;
+  settlementAmount: bigint;
+  settlementCurrency: CurrencyCode;
+}) => {
+  if (0n >= paidAmount || 0n >= settlementAmount) {
+    return 0;
+  }
+
+  const paidMultiplier = 10 ** CURRENCIES[paidCurrency].decimalDigits;
+  const settlementMultiplier = 10 ** CURRENCIES[settlementCurrency].decimalDigits;
+
+  return (
+    (Number(settlementAmount) / settlementMultiplier) /
+    (Number(paidAmount) / paidMultiplier)
+  );
+};
+
+export const calculatePaidPerSettlementRate = ({
+  paidAmount,
+  paidCurrency,
+  settlementAmount,
+  settlementCurrency,
+}: {
+  paidAmount: bigint;
+  paidCurrency: CurrencyCode;
+  settlementAmount: bigint;
+  settlementCurrency: CurrencyCode;
+}) => {
+  const exchangeRate = calculateExchangeRateFromSettlement({
+    paidAmount,
+    paidCurrency,
+    settlementAmount,
+    settlementCurrency,
+  });
+
+  return 0 < exchangeRate ? 1 / exchangeRate : 0;
+};

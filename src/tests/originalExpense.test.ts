@@ -1,6 +1,8 @@
 import { SplitType, type User } from '@prisma/client';
 
 import {
+  calculateExchangeRateFromSettlement,
+  calculatePaidPerSettlementRate,
   calculateSettlementAmount,
   validateAndNormalizeOriginalExpenseFields,
 } from '~/lib/originalExpense';
@@ -61,6 +63,36 @@ describe('validateAndNormalizeOriginalExpenseFields', () => {
     });
 
     expect(settlementAmount).toBe(56700n);
+  });
+
+  it('derives the stored exchange rate from the card charged amount', () => {
+    const exchangeRate = calculateExchangeRateFromSettlement({
+      paidAmount: 6400n,
+      paidCurrency: 'KRW',
+      settlementAmount: 546n,
+      settlementCurrency: 'SGD',
+    });
+
+    expect(exchangeRate).toBeCloseTo(0.000853125);
+    expect(
+      calculateSettlementAmount({
+        paidAmount: 6400n,
+        paidCurrency: 'KRW',
+        settlementCurrency: 'SGD',
+        exchangeRate,
+      }),
+    ).toBe(546n);
+  });
+
+  it('derives the traveler-facing card rate from the card charged amount', () => {
+    const cardRate = calculatePaidPerSettlementRate({
+      paidAmount: 6400n,
+      paidCurrency: 'KRW',
+      settlementAmount: 546n,
+      settlementCurrency: 'SGD',
+    });
+
+    expect(cardRate).toBeCloseTo(1172.161172);
   });
 
   it('keeps same-currency expenses unchanged by clearing original fields', () => {

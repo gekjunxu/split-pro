@@ -4,7 +4,12 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { type CurrencyCode, isCurrencyCode } from '~/lib/currency';
 import { cn } from '~/lib/utils';
-import { calculateSettlementAmount, formatConversionRate } from '~/lib/originalExpense';
+import {
+  calculateExchangeRateFromSettlement,
+  calculatePaidPerSettlementRate,
+  calculateSettlementAmount,
+  formatConversionRate,
+} from '~/lib/originalExpense';
 import { api } from '~/utils/api';
 import { BigMath, MAX_RATE_PRECISION, getRatePrecision } from '~/utils/numbers';
 import { useTranslationWithUtils } from '~/hooks/useTranslationWithUtils';
@@ -15,6 +20,8 @@ import { CurrencyInput } from '../ui/currency-input';
 import { AppDrawer } from '../ui/drawer';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
+
+type RateMode = 'auto' | 'statement' | 'manual';
 
 export const OriginalExpenseDetails: React.FC<{
   expenseDate: Date;
@@ -50,8 +57,12 @@ export const OriginalExpenseDetails: React.FC<{
     originalAmount ?? BigMath.abs(settlementAmount),
   );
   const [localOriginalAmountStr, setLocalOriginalAmountStr] = useState('');
+  const [localSettlementAmount, setLocalSettlementAmount] = useState<bigint>(
+    BigMath.abs(settlementAmount),
+  );
+  const [localSettlementAmountStr, setLocalSettlementAmountStr] = useState('');
   const [localRate, setLocalRate] = useState(conversionRate ? String(conversionRate) : '');
-  const [isEditingRate, setIsEditingRate] = useState(false);
+  const [rateMode, setRateMode] = useState<RateMode>('auto');
 
   const rateQuery = api.expense.getCurrencyRate.useQuery(
     {
@@ -60,7 +71,7 @@ export const OriginalExpenseDetails: React.FC<{
       date: expenseDate,
     },
     {
-      enabled: open && localOriginalCurrency !== settlementCurrency,
+      enabled: open && localOriginalCurrency !== settlementCurrency && 'auto' === rateMode,
     },
   );
 
@@ -74,8 +85,16 @@ export const OriginalExpenseDetails: React.FC<{
         true,
       ),
     );
+    setLocalSettlementAmount(BigMath.abs(settlementAmount));
+    setLocalSettlementAmountStr(
+      getCurrencyHelpersCached(settlementCurrency).toUIString(
+        BigMath.abs(settlementAmount),
+        true,
+        true,
+      ),
+    );
     setLocalRate(conversionRate ? String(conversionRate) : '');
-    setIsEditingRate(false);
+    setRateMode(conversionRate ? 'manual' : 'auto');
   }, [
     conversionRate,
     getCurrencyHelpersCached,
@@ -89,7 +108,7 @@ export const OriginalExpenseDetails: React.FC<{
     if (
       localOriginalCurrency === settlementCurrency ||
       !rateQuery.data?.rate ||
-      isEditingRate ||
+      'auto' !== rateMode ||
       (Boolean(localRate) && localOriginalCurrency === originalCurrency)
     ) {
       return;
@@ -98,15 +117,19 @@ export const OriginalExpenseDetails: React.FC<{
     const precision = getRatePrecision(rateQuery.data.rate, MAX_RATE_PRECISION);
     setLocalRate(rateQuery.data.rate.toFixed(precision));
   }, [
-    isEditingRate,
     localOriginalCurrency,
     localRate,
     originalCurrency,
+    rateMode,
     rateQuery.data?.rate,
     settlementCurrency,
   ]);
 
   const settlementPreviewAmount = useMemo(() => {
+    if ('statement' === rateMode) {
+      return localSettlementAmount;
+    }
+
     if (localOriginalCurrency === settlementCurrency || !localRate) {
       return localOriginalAmount;
     }
@@ -117,15 +140,14 @@ export const OriginalExpenseDetails: React.FC<{
       settlementCurrency,
       exchangeRate: Number(localRate),
     });
-  }, [localOriginalAmount, localOriginalCurrency, localRate, settlementCurrency]);
-
-  const ratePrecision = useMemo(() => {
-    if (!localRate) {
-      return 0;
-    }
-
-    return getRatePrecision(Number(localRate), MAX_RATE_PRECISION);
-  }, [localRate]);
+  }, [
+    localOriginalAmount,
+    localOriginalCurrency,
+    localRate,
+    localSettlementAmount,
+    rateMode,
+    settlementCurrency,
+  ]);
 
   const onChangeOriginalAmount = useCallback(
     ({ strValue, bigIntValue }: { strValue?: string; bigIntValue?: bigint }) => {
@@ -146,8 +168,20 @@ export const OriginalExpenseDetails: React.FC<{
 
     setLocalOriginalCurrency(currency);
     setLocalRate('');
-    setIsEditingRate(false);
+    setRateMode('auto');
   }, []);
+
+  const onChangeSettlementAmount = useCallback(
+    ({ strValue, bigIntValue }: { strValue?: string; bigIntValue?: bigint }) => {
+      if (strValue !== undefined) {
+        setLocalSettlementAmountStr(strValue);
+      }
+      if (bigIntValue !== undefined) {
+        setLocalSettlementAmount(bigIntValue);
+      }
+    },
+    [],
+  );
 
   const onChangeRate = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value.replace(/,/g, '.');
@@ -166,11 +200,22 @@ export const OriginalExpenseDetails: React.FC<{
   }, []);
 
   const isForeignCurrency = localOriginalCurrency !== settlementCurrency;
-  const parsedRate = Number(localRate);
+  const statementRate = useMemo(
+    () =>
+      calculateExchangeRateFromSettlement({
+        paidAmount: localOriginalAmount,
+        paidCurrency: localOriginalCurrency,
+        settlementAmount: localSettlementAmount,
+        settlementCurrency,
+      }),
+    [localOriginalAmount, localOriginalCurrency, localSettlementAmount, settlementCurrency],
+  );
+  const parsedRate = 'statement' === rateMode ? statementRate : Number(localRate);
   const canSave =
     isForeignCurrency &&
     localOriginalAmount > 0n &&
-    Boolean(localRate) &&
+    ('statement' !== rateMode || localSettlementAmount > 0n) &&
+    ('statement' === rateMode || Boolean(localRate)) &&
     Number.isFinite(parsedRate) &&
     parsedRate > 0 &&
     isCurrencyCode(localOriginalCurrency);
@@ -196,14 +241,11 @@ export const OriginalExpenseDetails: React.FC<{
     settlementPreviewAmount,
   ]);
 
-  const onEditRate = useCallback(() => {
-    setIsEditingRate((current) => {
-      if (current) {
-        setLocalRate('');
-      }
-
-      return !current;
-    });
+  const onRateModeChange = useCallback((nextMode: RateMode) => {
+    setRateMode(nextMode);
+    if ('auto' === nextMode) {
+      setLocalRate('');
+    }
   }, []);
 
   const paidAmountLabel = useMemo(
@@ -220,6 +262,22 @@ export const OriginalExpenseDetails: React.FC<{
         false,
       ),
     [getCurrencyHelpersCached, settlementCurrency, settlementPreviewAmount],
+  );
+
+  const effectiveCardRate = useMemo(
+    () =>
+      calculatePaidPerSettlementRate({
+        paidAmount: localOriginalAmount,
+        paidCurrency: localOriginalCurrency,
+        settlementAmount: settlementPreviewAmount,
+        settlementCurrency,
+      }),
+    [localOriginalAmount, localOriginalCurrency, settlementPreviewAmount, settlementCurrency],
+  );
+
+  const effectiveCardRateLabel = useMemo(
+    () => formatConversionRate(effectiveCardRate),
+    [effectiveCardRate],
   );
 
   const summary = useMemo(() => {
@@ -308,15 +366,50 @@ export const OriginalExpenseDetails: React.FC<{
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between gap-2">
                 <Label>{t('expense_details.add_expense_details.overseas.rate')}</Label>
-                <Button variant="ghost" size="sm" className="h-7 px-2" onClick={onEditRate}>
-                  {t(
-                    `expense_details.add_expense_details.overseas.${
-                      isEditingRate ? 'use_auto_rate' : 'edit_rate'
-                    }`,
-                  )}
-                </Button>
+                <div className="flex gap-1">
+                  <Button
+                    variant={'auto' === rateMode ? 'secondary' : 'ghost'}
+                    size="sm"
+                    className="h-7 px-2"
+                    onClick={() => onRateModeChange('auto')}
+                  >
+                    {t('expense_details.add_expense_details.overseas.auto_rate')}
+                  </Button>
+                  <Button
+                    variant={'statement' === rateMode ? 'secondary' : 'ghost'}
+                    size="sm"
+                    className="h-7 px-2"
+                    onClick={() => onRateModeChange('statement')}
+                  >
+                    {t('expense_details.add_expense_details.overseas.card_charge')}
+                  </Button>
+                  <Button
+                    variant={'manual' === rateMode ? 'secondary' : 'ghost'}
+                    size="sm"
+                    className="h-7 px-2"
+                    onClick={() => onRateModeChange('manual')}
+                  >
+                    {t('expense_details.add_expense_details.overseas.edit_rate')}
+                  </Button>
+                </div>
               </div>
-              {isEditingRate ? (
+              {'statement' === rateMode ? (
+                <div className="flex flex-col gap-2">
+                  <Label>{t('expense_details.add_expense_details.overseas.card_charged')}</Label>
+                  <CurrencyInput
+                    currency={settlementCurrency}
+                    strValue={localSettlementAmountStr}
+                    hideSymbol
+                    onValueChange={onChangeSettlementAmount}
+                  />
+                  <span className="text-xs text-gray-500">
+                    {t('expense_details.add_expense_details.overseas.card_charged_help', {
+                      settlementCurrency,
+                    })}
+                  </span>
+                </div>
+              ) : null}
+              {'manual' === rateMode ? (
                 <Input
                   type="text"
                   step={`0.${'0'.repeat(MAX_RATE_PRECISION - 1)}1`}
@@ -327,21 +420,30 @@ export const OriginalExpenseDetails: React.FC<{
                   disabled={!isForeignCurrency}
                 />
               ) : null}
-              {rateQuery.isPending && isForeignCurrency && !localRate ? (
+              {rateQuery.isPending && isForeignCurrency && !localRate && 'auto' === rateMode ? (
                 <span className="text-xs text-gray-500">
                   {t('currency_conversion.fetching_rate')}
                 </span>
               ) : null}
-              {localRate ? (
+              {parsedRate > 0 && 'statement' !== rateMode ? (
                 <span className="text-xs text-gray-500">
                   {t('expense_details.add_expense_details.overseas.rate_direction', {
                     paidCurrency: localOriginalCurrency,
-                    rate: Number(localRate).toFixed(ratePrecision),
+                    rate: formatConversionRate(parsedRate),
                     settlementCurrency,
                   })}
                 </span>
               ) : null}
-              {localRate ? (
+              {effectiveCardRate > 0 ? (
+                <span className="text-xs text-gray-500">
+                  {t('expense_details.add_expense_details.overseas.card_rate_direction', {
+                    rate: effectiveCardRateLabel,
+                    paidCurrency: localOriginalCurrency,
+                    settlementCurrency,
+                  })}
+                </span>
+              ) : null}
+              {parsedRate > 0 ? (
                 <span className="text-xs text-gray-500">
                   {t('expense_details.add_expense_details.overseas.conversion_direction', {
                     paidAmount: paidAmountLabel,

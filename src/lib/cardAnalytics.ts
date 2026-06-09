@@ -1,3 +1,6 @@
+import { isCurrencyCode } from '~/lib/currency';
+import { calculatePaidPerSettlementRate } from '~/lib/originalExpense';
+
 export interface CardAnalyticsExpense {
   amount: bigint;
   originalAmount: bigint | null;
@@ -76,7 +79,17 @@ export const calculateCardAnalytics = (
       expense.originalAmount! < 0n ? -expense.originalAmount! : expense.originalAmount!,
     );
     const rateKey = `${expense.originalCurrency}:${expense.card.id}`;
-    incrementNumberMap(rateTotals, rateKey, expense.conversionRate!);
+    const effectiveCardRate =
+      isCurrencyCode(expense.originalCurrency) && isCurrencyCode(expense.currency)
+        ? calculatePaidPerSettlementRate({
+            paidAmount:
+              expense.originalAmount! < 0n ? -expense.originalAmount! : expense.originalAmount!,
+            paidCurrency: expense.originalCurrency,
+            settlementAmount: expense.amount < 0n ? -expense.amount : expense.amount,
+            settlementCurrency: expense.currency,
+          })
+        : expense.conversionRate!;
+    incrementNumberMap(rateTotals, rateKey, effectiveCardRate);
     incrementNumberMap(rateCounts, rateKey, 1);
   });
 
