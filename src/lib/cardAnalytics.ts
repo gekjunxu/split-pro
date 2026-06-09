@@ -1,4 +1,4 @@
-import { isCurrencyCode } from '~/lib/currency';
+import { type CurrencyCode, isCurrencyCode } from '~/lib/currency';
 import { calculatePaidPerSettlementRate } from '~/lib/originalExpense';
 
 export interface CardAnalyticsExpense {
@@ -7,9 +7,11 @@ export interface CardAnalyticsExpense {
   originalCurrency: string | null;
   conversionRate: number | null;
   currency: string;
+  expenseDate?: Date;
   card: {
     id: number;
     name: string;
+    type?: string;
   } | null;
 }
 
@@ -20,6 +22,13 @@ export interface CardAnalyticsSummary {
   averageRatesByCurrency: {
     currency: string;
     cards: { cardId: number; cardName: string; averageRate: number; count: number }[];
+  }[];
+  rateHistory: {
+    currency: string;
+    cardId: number;
+    cardName: string;
+    date: Date;
+    rate: number;
   }[];
   insights: {
     mostUsedCard?: string;
@@ -45,6 +54,19 @@ const incrementNumberMap = (map: Map<string, number>, key: string, amount: numbe
 };
 
 const compareBigIntDesc = (a: bigint, b: bigint) => (a === b ? 0 : a > b ? -1 : 1);
+
+const toEffectiveCardRate = (expense: CardAnalyticsExpense) => {
+  if (!isCurrencyCode(expense.originalCurrency) || !isCurrencyCode(expense.currency)) {
+    return expense.conversionRate ?? 0;
+  }
+
+  return calculatePaidPerSettlementRate({
+    paidAmount: expense.originalAmount! < 0n ? -expense.originalAmount! : expense.originalAmount!,
+    paidCurrency: expense.originalCurrency as CurrencyCode,
+    settlementAmount: expense.amount < 0n ? -expense.amount : expense.amount,
+    settlementCurrency: expense.currency as CurrencyCode,
+  });
+};
 
 export const calculateCardAnalytics = (
   expenses: CardAnalyticsExpense[],
@@ -79,16 +101,7 @@ export const calculateCardAnalytics = (
       expense.originalAmount! < 0n ? -expense.originalAmount! : expense.originalAmount!,
     );
     const rateKey = `${expense.originalCurrency}:${expense.card.id}`;
-    const effectiveCardRate =
-      isCurrencyCode(expense.originalCurrency) && isCurrencyCode(expense.currency)
-        ? calculatePaidPerSettlementRate({
-            paidAmount:
-              expense.originalAmount! < 0n ? -expense.originalAmount! : expense.originalAmount!,
-            paidCurrency: expense.originalCurrency,
-            settlementAmount: expense.amount < 0n ? -expense.amount : expense.amount,
-            settlementCurrency: expense.currency,
-          })
-        : expense.conversionRate!;
+    const effectiveCardRate = toEffectiveCardRate(expense);
     incrementNumberMap(rateTotals, rateKey, effectiveCardRate);
     incrementNumberMap(rateCounts, rateKey, 1);
   });
@@ -148,6 +161,24 @@ export const calculateCardAnalytics = (
     }))
     .sort((a, b) => a.currency.localeCompare(b.currency));
 
+  const rateHistory = expenses
+    .filter(
+      (expense) =>
+        expense.card &&
+        expense.expenseDate &&
+        hasForeignMetadata(expense) &&
+        isCurrencyCode(expense.originalCurrency) &&
+        isCurrencyCode(expense.currency),
+    )
+    .map((expense) => ({
+      currency: expense.originalCurrency!,
+      cardId: expense.card!.id,
+      cardName: expense.card!.name,
+      date: expense.expenseDate!,
+      rate: toEffectiveCardRate(expense),
+    }))
+    .sort((a, b) => a.date.getTime() - b.date.getTime());
+
   const mostUsedCard = cardUsage.find((card) => card.count >= MIN_INSIGHT_SAMPLE_SIZE)?.cardName;
 
   const foreignSpendByCard = expenses.reduce<Map<number, bigint>>((acc, expense) => {
@@ -178,6 +209,7 @@ export const calculateCardAnalytics = (
     foreignSpendingByCurrency: foreignSpending,
     cardUsageCounts: cardUsage,
     averageRatesByCurrency,
+    rateHistory,
     insights: {
       mostUsedCard,
       highestForeignSpendCard:

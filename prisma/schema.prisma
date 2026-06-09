@@ -71,12 +71,17 @@ model User {
 }
 
 model Card {
-  id        Int       @id @default(autoincrement())
-  userId    Int
-  name      String
-  issuer    String?
-  network   String?
-  notes     String?
+  id                 Int       @id @default(autoincrement())
+  userId             Int
+  name               String
+  issuer             String?
+  network            String?
+  notes              String?
+  type               String    @default("CARD")
+  defaultCurrency    String?
+  settlementCurrency String?
+  defaultRate        Float?
+  startingBalance    BigInt?
   archivedAt DateTime?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt

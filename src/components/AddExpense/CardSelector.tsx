@@ -27,10 +27,10 @@ export const CardSelector: React.FC<{
     <div className="flex items-center gap-2 text-sm text-gray-500">
       <CreditCard className="size-4" />
       <NativeSelect value={cardId?.toString() ?? ''} onChange={onChange} className="max-w-64">
-        <NativeSelectOption value="">No card</NativeSelectOption>
+        <NativeSelectOption value="">No payment source</NativeSelectOption>
         {cardsQuery.data.map((card) => (
           <NativeSelectOption key={card.id} value={card.id.toString()}>
-            {card.name}
+            {card.type === 'CASH' ? `${card.name} (cash)` : card.name}
           </NativeSelectOption>
         ))}
       </NativeSelect>

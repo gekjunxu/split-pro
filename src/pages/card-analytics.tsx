@@ -11,7 +11,7 @@ import { api } from '~/utils/api';
 import { withI18nStaticProps } from '~/utils/i18n/server';
 
 const CardAnalyticsPage: NextPageWithUser = () => {
-  const { t, getCurrencyHelpersCached } = useTranslationWithUtils();
+  const { t, getCurrencyHelpersCached, toUIDate } = useTranslationWithUtils();
   const analyticsQuery = api.card.analytics.useQuery();
   const analytics = analyticsQuery.data;
 
@@ -118,6 +118,16 @@ const CardAnalyticsPage: NextPageWithUser = () => {
                 </div>
               ))}
             </Section>
+
+            <Section
+              title={t('cards.analytics.rate_trends')}
+              icon={<TrendingUp className="size-5" />}
+            >
+              <RateTrendGraph
+                history={analytics.rateHistory}
+                formatDate={(date) => toUIDate(date, { year: true })}
+              />
+            </Section>
           </div>
         )}
       </MainLayout>
@@ -145,6 +155,101 @@ const Metric: React.FC<{ label: string; value: string }> = ({ label, value }) =>
     <span className="shrink-0 text-right font-medium">{value}</span>
   </div>
 );
+
+const RateTrendGraph: React.FC<{
+  history: { currency: string; cardId: number; cardName: string; date: Date; rate: number }[];
+  formatDate: (date: Date) => string;
+}> = ({ history, formatDate }) => {
+  const series = React.useMemo(() => {
+    const grouped = history.reduce<
+      Record<string, { cardName: string; currency: string; points: { date: Date; rate: number }[] }>
+    >((acc, point) => {
+      const key = `${point.currency}:${point.cardId}`;
+      acc[key] ??= {
+        cardName: point.cardName,
+        currency: point.currency,
+        points: [],
+      };
+      acc[key].points.push({ date: point.date, rate: point.rate });
+      return acc;
+    }, {});
+
+    return Object.values(grouped).filter((entry) => entry.points.length >= 2);
+  }, [history]);
+
+  const firstSeries = series[0];
+  if (!firstSeries) {
+    return <p className="text-sm text-gray-500">More rate history is needed for a graph.</p>;
+  }
+
+  return (
+    <div className="grid gap-3">
+      {series.map((entry) => (
+        <SingleRateTrend
+          key={`${entry.currency}-${entry.cardName}`}
+          entry={entry}
+          formatDate={formatDate}
+        />
+      ))}
+    </div>
+  );
+};
+
+const SingleRateTrend: React.FC<{
+  entry: { cardName: string; currency: string; points: { date: Date; rate: number }[] };
+  formatDate: (date: Date) => string;
+}> = ({ entry, formatDate }) => {
+  const width = 320;
+  const height = 140;
+  const padding = 20;
+  const points = entry.points.toSorted((a, b) => a.date.getTime() - b.date.getTime());
+  const minTime = points[0]!.date.getTime();
+  const maxTime = points[points.length - 1]!.date.getTime();
+  const rates = points.map((point) => point.rate);
+  const minRate = Math.min(...rates);
+  const maxRate = Math.max(...rates);
+  const timeSpan = Math.max(maxTime - minTime, 1);
+  const rateSpan = Math.max(maxRate - minRate, 0.0000001);
+
+  const coordinates = points.map((point) => {
+    const x = padding + ((point.date.getTime() - minTime) / timeSpan) * (width - padding * 2);
+    const y = height - padding - ((point.rate - minRate) / rateSpan) * (height - padding * 2);
+    return { ...point, x, y };
+  });
+
+  const path = coordinates
+    .map((point, index) => `${0 === index ? 'M' : 'L'} ${point.x} ${point.y}`)
+    .join(' ');
+
+  return (
+    <div className="grid gap-2 rounded-md border p-3">
+      <div className="flex items-center justify-between gap-3 text-sm">
+        <span className="font-medium">{firstSeries.cardName}</span>
+        <span className="text-gray-500">{entry.currency}</span>
+      </div>
+      <svg viewBox={`0 0 ${width} ${height}`} className="h-40 w-full">
+        <path d={path} fill="none" stroke="currentColor" strokeWidth="2" className="text-primary" />
+        {coordinates.map((point) => (
+          <circle
+            key={point.date.toISOString()}
+            cx={point.x}
+            cy={point.y}
+            r="3"
+            className="fill-primary"
+          />
+        ))}
+      </svg>
+      <div className="flex justify-between text-xs text-gray-500">
+        <span>{formatDate(points[0]!.date)}</span>
+        <span>{formatDate(points[points.length - 1]!.date)}</span>
+      </div>
+      <div className="flex justify-between text-xs text-gray-500">
+        <span>{formatConversionRate(minRate)}</span>
+        <span>{formatConversionRate(maxRate)}</span>
+      </div>
+    </div>
+  );
+};
 
 CardAnalyticsPage.auth = true;
 

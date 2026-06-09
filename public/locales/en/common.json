@@ -131,6 +131,9 @@
     "add_card": "Add card",
     "archived": "Archived",
     "card": "Card",
+    "cash_currency": "Cash currency",
+    "default_rate": "Default rate",
+    "default_rate_placeholder": "Cash currency per settlement currency",
     "edit_card": "Edit card",
     "empty": "No cards yet",
     "effective_rate": "Effective rate",
@@ -140,7 +143,13 @@
     "no_card": "No card",
     "notes": "Notes",
     "saved": "Card saved",
+    "settlement_currency": "Settlement currency",
+    "starting_balance": "Starting balance",
     "title": "Cards",
+    "types": {
+      "card": "Card",
+      "cash": "Cash tranche"
+    },
     "analytics": {
       "average_rates": "Average effective rates",
       "best_average_rate": "Best average {{currency}} rate",
@@ -151,6 +160,7 @@
       "insights": "Insights",
       "most_used_card": "Most used card",
       "not_enough_data": "More card-attributed expenses are needed for insights.",
+      "rate_trends": "Rate trends",
       "spending_by_card": "Spending by card",
       "title": "Card analytics",
       "usage_count": "Card usage count"

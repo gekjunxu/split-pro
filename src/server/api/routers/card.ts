@@ -10,6 +10,11 @@ const cardInputSchema = z.object({
   issuer: z.string().trim().nullable().optional(),
   network: z.string().trim().nullable().optional(),
   notes: z.string().trim().nullable().optional(),
+  type: z.enum(['CARD', 'CASH']).default('CARD'),
+  defaultCurrency: z.string().trim().nullable().optional(),
+  settlementCurrency: z.string().trim().nullable().optional(),
+  defaultRate: z.number().positive().nullable().optional(),
+  startingBalance: z.bigint().nullable().optional(),
 });
 
 const normalizeNullableText = (value?: string | null) => {
@@ -42,6 +47,11 @@ export const cardRouter = createTRPCRouter({
         issuer: normalizeNullableText(input.issuer),
         network: normalizeNullableText(input.network),
         notes: normalizeNullableText(input.notes),
+        type: input.type,
+        defaultCurrency: normalizeNullableText(input.defaultCurrency),
+        settlementCurrency: normalizeNullableText(input.settlementCurrency),
+        defaultRate: input.defaultRate ?? null,
+        startingBalance: input.startingBalance ?? null,
       },
     }),
   ),
@@ -58,6 +68,11 @@ export const cardRouter = createTRPCRouter({
           issuer: normalizeNullableText(input.issuer),
           network: normalizeNullableText(input.network),
           notes: normalizeNullableText(input.notes),
+          type: input.type,
+          defaultCurrency: normalizeNullableText(input.defaultCurrency),
+          settlementCurrency: normalizeNullableText(input.settlementCurrency),
+          defaultRate: input.defaultRate ?? null,
+          startingBalance: input.startingBalance ?? null,
         },
       });
     }),
@@ -105,8 +120,10 @@ export const cardRouter = createTRPCRouter({
           select: {
             id: true,
             name: true,
+            type: true,
           },
         },
+        expenseDate: true,
       },
     });
 

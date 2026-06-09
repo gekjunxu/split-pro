@@ -30,6 +30,7 @@ export const OriginalExpenseDetails: React.FC<{
   originalAmount?: bigint;
   originalCurrency?: CurrencyCode;
   conversionRate?: number;
+  cardId?: number | null;
   onApply: (data: {
     settlementAmount: bigint;
     originalAmount: bigint;
@@ -44,6 +45,7 @@ export const OriginalExpenseDetails: React.FC<{
   originalAmount,
   originalCurrency,
   conversionRate,
+  cardId,
   onApply,
   onClear,
 }) => {
@@ -63,6 +65,11 @@ export const OriginalExpenseDetails: React.FC<{
   const [localSettlementAmountStr, setLocalSettlementAmountStr] = useState('');
   const [localRate, setLocalRate] = useState(conversionRate ? String(conversionRate) : '');
   const [rateMode, setRateMode] = useState<RateMode>('auto');
+  const cardsQuery = api.card.list.useQuery();
+  const selectedPaymentSource = useMemo(
+    () => cardsQuery.data?.find((card) => card.id === cardId),
+    [cardId, cardsQuery.data],
+  );
 
   const rateQuery = api.expense.getCurrencyRate.useQuery(
     {
@@ -76,10 +83,25 @@ export const OriginalExpenseDetails: React.FC<{
   );
 
   useEffect(() => {
-    setLocalOriginalCurrency(originalCurrency ?? settlementCurrency);
+    const sourceCurrency =
+      !originalCurrency &&
+      selectedPaymentSource?.type === 'CASH' &&
+      isCurrencyCode(selectedPaymentSource.defaultCurrency)
+        ? selectedPaymentSource.defaultCurrency
+        : undefined;
+    const nextCurrency = originalCurrency ?? sourceCurrency ?? settlementCurrency;
+    const sourceRate =
+      sourceCurrency &&
+      selectedPaymentSource?.defaultRate &&
+      (!selectedPaymentSource.settlementCurrency ||
+        selectedPaymentSource.settlementCurrency === settlementCurrency)
+        ? 1 / selectedPaymentSource.defaultRate
+        : undefined;
+
+    setLocalOriginalCurrency(nextCurrency);
     setLocalOriginalAmount(originalAmount ?? BigMath.abs(settlementAmount));
     setLocalOriginalAmountStr(
-      getCurrencyHelpersCached(originalCurrency ?? settlementCurrency).toUIString(
+      getCurrencyHelpersCached(nextCurrency).toUIString(
         originalAmount ?? BigMath.abs(settlementAmount),
         true,
         true,
@@ -93,8 +115,8 @@ export const OriginalExpenseDetails: React.FC<{
         true,
       ),
     );
-    setLocalRate(conversionRate ? String(conversionRate) : '');
-    setRateMode(conversionRate ? 'manual' : 'auto');
+    setLocalRate(conversionRate ? String(conversionRate) : sourceRate ? String(sourceRate) : '');
+    setRateMode(conversionRate || sourceRate ? 'manual' : 'auto');
   }, [
     conversionRate,
     getCurrencyHelpersCached,
@@ -102,6 +124,7 @@ export const OriginalExpenseDetails: React.FC<{
     originalCurrency,
     settlementAmount,
     settlementCurrency,
+    selectedPaymentSource,
   ]);
 
   useEffect(() => {

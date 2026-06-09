@@ -1,4 +1,4 @@
-import { CreditCard, PencilIcon, PlusIcon, RotateCcw, Trash2 } from 'lucide-react';
+import { Banknote, CreditCard, PencilIcon, PlusIcon, RotateCcw, Trash2 } from 'lucide-react';
 import Head from 'next/head';
 import React, { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
@@ -12,12 +12,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '~/components/ui/dialog';
+import { Label } from '~/components/ui/label';
 import { Input } from '~/components/ui/input';
+import { NativeSelect, NativeSelectOption } from '~/components/ui/native-select';
 import { Textarea } from '~/components/ui/textarea';
 import { useTranslationWithUtils } from '~/hooks/useTranslationWithUtils';
+import { CURRENCIES, isCurrencyCode } from '~/lib/currency';
 import { type NextPageWithUser } from '~/types';
 import { api } from '~/utils/api';
 import { withI18nStaticProps } from '~/utils/i18n/server';
+import { CurrencyInput } from '~/components/ui/currency-input';
 
 interface CardFormState {
   id?: number;
@@ -25,6 +29,12 @@ interface CardFormState {
   issuer: string;
   network: string;
   notes: string;
+  type: 'CARD' | 'CASH';
+  defaultCurrency: string;
+  settlementCurrency: string;
+  defaultRate: string;
+  startingBalance: bigint | null;
+  startingBalanceStr: string;
 }
 
 const emptyCardForm: CardFormState = {
@@ -32,10 +42,16 @@ const emptyCardForm: CardFormState = {
   issuer: '',
   network: '',
   notes: '',
+  type: 'CARD',
+  defaultCurrency: 'USD',
+  settlementCurrency: 'USD',
+  defaultRate: '',
+  startingBalance: null,
+  startingBalanceStr: '',
 };
 
 const CardsPage: NextPageWithUser = () => {
-  const { t } = useTranslationWithUtils();
+  const { t, getCurrencyHelpersCached } = useTranslationWithUtils();
   const utils = api.useUtils();
   const cardsQuery = api.card.list.useQuery({ includeArchived: true });
   const createCard = api.card.create.useMutation();
@@ -61,16 +77,38 @@ const CardsPage: NextPageWithUser = () => {
       issuer: card.issuer ?? '',
       network: card.network ?? '',
       notes: card.notes ?? '',
+      type: card.type === 'CASH' ? 'CASH' : 'CARD',
+      defaultCurrency: card.defaultCurrency ?? 'USD',
+      settlementCurrency: card.settlementCurrency ?? 'USD',
+      defaultRate: card.defaultRate ? String(card.defaultRate) : '',
+      startingBalance: card.startingBalance ?? null,
+      startingBalanceStr:
+        card.startingBalance && isCurrencyCode(card.defaultCurrency ?? '')
+          ? getCurrencyHelpersCached(card.defaultCurrency ?? 'USD').toUIString(
+              card.startingBalance,
+              true,
+              true,
+            )
+          : '',
     });
     setOpen(true);
-  }, []);
+  }, [getCurrencyHelpersCached]);
 
   const onSave = useCallback(async () => {
     try {
       if (form.id) {
-        await updateCard.mutateAsync({ ...form, id: form.id });
+        await updateCard.mutateAsync({
+          ...form,
+          id: form.id,
+          defaultRate: form.defaultRate ? Number(form.defaultRate) : null,
+          startingBalance: form.startingBalance,
+        });
       } else {
-        await createCard.mutateAsync(form);
+        await createCard.mutateAsync({
+          ...form,
+          defaultRate: form.defaultRate ? Number(form.defaultRate) : null,
+          startingBalance: form.startingBalance,
+        });
       }
       await refreshCards();
       setOpen(false);
@@ -104,6 +142,35 @@ const CardsPage: NextPageWithUser = () => {
     [],
   );
 
+  const onTypeChange = useCallback((event: React.ChangeEvent<HTMLSelectElement>) => {
+    setForm((current) => ({
+      ...current,
+      type: event.target.value === 'CASH' ? 'CASH' : 'CARD',
+    }));
+  }, []);
+
+  const onCurrencyChange = useCallback(
+    (key: 'defaultCurrency' | 'settlementCurrency') =>
+      (event: React.ChangeEvent<HTMLSelectElement>) => {
+        setForm((current) => ({ ...current, [key]: event.target.value }));
+      },
+    [],
+  );
+
+  const onStartingBalanceChange = useCallback(
+    ({ strValue, bigIntValue }: { strValue?: string; bigIntValue?: bigint }) => {
+      setForm((current) => ({
+        ...current,
+        startingBalanceStr: strValue ?? current.startingBalanceStr,
+        startingBalance:
+          bigIntValue !== undefined
+            ? bigIntValue
+            : current.startingBalance,
+      }));
+    },
+    [],
+  );
+
   useEffect(() => {
     if (!open) {
       setForm(emptyCardForm);
@@ -128,11 +195,26 @@ const CardsPage: NextPageWithUser = () => {
                 className="flex items-center justify-between gap-3 rounded-md border p-3"
               >
                 <div className="flex min-w-0 items-center gap-3">
-                  <CreditCard className="size-5 shrink-0 text-cyan-500" />
+                  {card.type === 'CASH' ? (
+                    <Banknote className="size-5 shrink-0 text-emerald-500" />
+                  ) : (
+                    <CreditCard className="size-5 shrink-0 text-cyan-500" />
+                  )}
                   <div className="min-w-0">
                     <p className="truncate font-medium">{card.name}</p>
                     <p className="truncate text-sm text-gray-500">
-                      {[card.issuer, card.network].filter(Boolean).join(' / ') || t('ui.not_set')}
+                      {card.type === 'CASH'
+                        ? [
+                            card.defaultCurrency,
+                            card.settlementCurrency,
+                            card.defaultRate
+                              ? `${card.defaultRate} ${card.defaultCurrency}/${card.settlementCurrency}`
+                              : null,
+                          ]
+                            .filter(Boolean)
+                            .join(' / ')
+                        : [card.issuer, card.network].filter(Boolean).join(' / ') ||
+                          t('ui.not_set')}
                     </p>
                     {card.archivedAt ? (
                       <p className="text-xs text-gray-500">{t('cards.archived')}</p>
@@ -170,16 +252,71 @@ const CardsPage: NextPageWithUser = () => {
                 onChange={updateForm('name')}
                 placeholder={t('cards.name')}
               />
-              <Input
-                value={form.issuer}
-                onChange={updateForm('issuer')}
-                placeholder={t('cards.issuer')}
-              />
-              <Input
-                value={form.network}
-                onChange={updateForm('network')}
-                placeholder={t('cards.network')}
-              />
+              <NativeSelect value={form.type} onChange={onTypeChange}>
+                <NativeSelectOption value="CARD">{t('cards.types.card')}</NativeSelectOption>
+                <NativeSelectOption value="CASH">{t('cards.types.cash')}</NativeSelectOption>
+              </NativeSelect>
+              {form.type === 'CARD' ? (
+                <>
+                  <Input
+                    value={form.issuer}
+                    onChange={updateForm('issuer')}
+                    placeholder={t('cards.issuer')}
+                  />
+                  <Input
+                    value={form.network}
+                    onChange={updateForm('network')}
+                    placeholder={t('cards.network')}
+                  />
+                </>
+              ) : (
+                <>
+                  <div className="grid gap-2">
+                    <Label>{t('cards.cash_currency')}</Label>
+                    <NativeSelect
+                      value={form.defaultCurrency}
+                      onChange={onCurrencyChange('defaultCurrency')}
+                    >
+                      {Object.keys(CURRENCIES).map((currency) => (
+                        <NativeSelectOption key={currency} value={currency}>
+                          {currency}
+                        </NativeSelectOption>
+                      ))}
+                    </NativeSelect>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>{t('cards.settlement_currency')}</Label>
+                    <NativeSelect
+                      value={form.settlementCurrency}
+                      onChange={onCurrencyChange('settlementCurrency')}
+                    >
+                      {Object.keys(CURRENCIES).map((currency) => (
+                        <NativeSelectOption key={currency} value={currency}>
+                          {currency}
+                        </NativeSelectOption>
+                      ))}
+                    </NativeSelect>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>{t('cards.default_rate')}</Label>
+                    <Input
+                      value={form.defaultRate}
+                      onChange={updateForm('defaultRate')}
+                      placeholder={t('cards.default_rate_placeholder')}
+                      inputMode="decimal"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>{t('cards.starting_balance')}</Label>
+                    <CurrencyInput
+                      currency={isCurrencyCode(form.defaultCurrency) ? form.defaultCurrency : 'USD'}
+                      strValue={form.startingBalanceStr}
+                      hideSymbol
+                      onValueChange={onStartingBalanceChange}
+                    />
+                  </div>
+                </>
+              )}
               <Textarea
                 value={form.notes}
                 onChange={updateForm('notes')}

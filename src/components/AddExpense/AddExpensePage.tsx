@@ -380,6 +380,7 @@ export const AddOrEditExpensePage: React.FC<{
               rightIcon={currencyConversionComponent}
             />
           </div>
+          <CardSelector cardId={cardId} onCardPick={setCardId} />
           <OriginalExpenseDetails
             expenseDate={expenseDate}
             settlementAmount={(isNegative ? -1n : 1n) * amount}
@@ -389,10 +390,10 @@ export const AddOrEditExpensePage: React.FC<{
             }
             originalCurrency={originalCurrency}
             conversionRate={conversionRate}
+            cardId={cardId}
             onApply={onApplyOriginalExpense}
             onClear={onClearOriginalExpense}
           />
-          <CardSelector cardId={cardId} onCardPick={setCardId} />
           <div className="h-[180px]">
             {amount && '' !== description ? (
               <>
