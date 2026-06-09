@@ -41,6 +41,10 @@ done
 if [ -z "$DATABASE_URL" ]; then
     DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_CONTAINER_NAME}:${POSTGRES_PORT}/${POSTGRES_DB}
 fi
+export DATABASE_URL
+
+echo "Applying database migrations"
+./node_modules/.bin/prisma migrate deploy
 
 echo "Starting web server"
 
