@@ -81,3 +81,21 @@ export const validateAndNormalizeOriginalExpenseFields = <T extends OriginalExpe
 
 export const formatConversionRate = (conversionRate: number) =>
   removeTrailingZeros(conversionRate.toFixed(getRatePrecision(conversionRate, MAX_RATE_PRECISION)));
+
+export const calculateSettlementAmount = ({
+  paidAmount,
+  paidCurrency,
+  settlementCurrency,
+  exchangeRate,
+}: {
+  paidAmount: bigint;
+  paidCurrency: CurrencyCode;
+  settlementCurrency: CurrencyCode;
+  exchangeRate: number;
+}) =>
+  currencyConversion({
+    amount: paidAmount,
+    rate: exchangeRate,
+    from: paidCurrency,
+    to: settlementCurrency,
+  });

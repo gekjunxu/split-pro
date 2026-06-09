@@ -1,6 +1,9 @@
 import { SplitType, type User } from '@prisma/client';
 
-import { validateAndNormalizeOriginalExpenseFields } from '~/lib/originalExpense';
+import {
+  calculateSettlementAmount,
+  validateAndNormalizeOriginalExpenseFields,
+} from '~/lib/originalExpense';
 import { type AddExpenseState, calculateParticipantSplit, initSplitShares } from '~/store/addStore';
 import { currencyConversion } from '~/utils/numbers';
 
@@ -38,6 +41,28 @@ const createEqualSplitState = (amount: bigint): AddExpenseState =>
   }) as AddExpenseState;
 
 describe('validateAndNormalizeOriginalExpenseFields', () => {
+  it('calculates settlement amount from paid currency to settlement currency', () => {
+    const settlementAmount = calculateSettlementAmount({
+      paidAmount: 1250n,
+      paidCurrency: 'JPY',
+      settlementCurrency: 'SGD',
+      exchangeRate: 0.0091,
+    });
+
+    expect(settlementAmount).toBe(1138n);
+  });
+
+  it('uses the rate as settlement currency per one paid currency unit', () => {
+    const settlementAmount = calculateSettlementAmount({
+      paidAmount: 42000n,
+      paidCurrency: 'USD',
+      settlementCurrency: 'SGD',
+      exchangeRate: 1.35,
+    });
+
+    expect(settlementAmount).toBe(56700n);
+  });
+
   it('keeps same-currency expenses unchanged by clearing original fields', () => {
     const normalized = validateAndNormalizeOriginalExpenseFields({
       amount: 1138n,

@@ -246,13 +246,20 @@
       },
       "sponsor_us": "Sponsor us",
       "overseas": {
-        "button": "Original paid amount",
-        "description": "Record what was actually paid when it differs from the settlement currency.",
+        "button": "Overseas expense",
+        "conversion_direction": "{{paidAmount}} converts to {{settlementAmount}} for group balances.",
+        "description": "Enter the amount actually charged in the paid currency. SplitPro converts it into the group currency for balances.",
+        "edit_rate": "Edit rate",
         "paid_amount": "Paid amount",
         "paid_currency": "Paid currency",
         "preview": "Settlement amount",
+        "preview_help": "This read-only amount is what will be saved for group balances.",
         "rate": "Exchange rate",
-        "summary": "Paid {{amount}} @ {{rate}} {{settlementCurrency}}/{{originalCurrency}}",
+        "rate_direction": "1 {{paidCurrency}} = {{rate}} {{settlementCurrency}}",
+        "settlement_currency": "Settlement currency",
+        "settlement_currency_help": "Balances and totals stay in this currency.",
+        "summary": "Paid {{amount}}, settled as {{settlementAmount}} @ {{rate}} {{settlementCurrency}}/{{originalCurrency}}",
+        "use_auto_rate": "Use auto rate",
         "title": "Overseas expense"
       },
       "upload_file": {

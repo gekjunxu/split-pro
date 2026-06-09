@@ -4,9 +4,9 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { type CurrencyCode, isCurrencyCode } from '~/lib/currency';
 import { cn } from '~/lib/utils';
-import { formatConversionRate } from '~/lib/originalExpense';
+import { calculateSettlementAmount, formatConversionRate } from '~/lib/originalExpense';
 import { api } from '~/utils/api';
-import { MAX_RATE_PRECISION, currencyConversion, getRatePrecision } from '~/utils/numbers';
+import { BigMath, MAX_RATE_PRECISION, getRatePrecision } from '~/utils/numbers';
 import { useTranslationWithUtils } from '~/hooks/useTranslationWithUtils';
 
 import { CurrencyPicker } from './CurrencyPicker';
@@ -47,10 +47,11 @@ export const OriginalExpenseDetails: React.FC<{
     originalCurrency ?? settlementCurrency,
   );
   const [localOriginalAmount, setLocalOriginalAmount] = useState<bigint>(
-    originalAmount ?? settlementAmount,
+    originalAmount ?? BigMath.abs(settlementAmount),
   );
   const [localOriginalAmountStr, setLocalOriginalAmountStr] = useState('');
   const [localRate, setLocalRate] = useState(conversionRate ? String(conversionRate) : '');
+  const [isEditingRate, setIsEditingRate] = useState(false);
 
   const rateQuery = api.expense.getCurrencyRate.useQuery(
     {
@@ -59,21 +60,22 @@ export const OriginalExpenseDetails: React.FC<{
       date: expenseDate,
     },
     {
-      enabled: localOriginalCurrency !== settlementCurrency,
+      enabled: open && localOriginalCurrency !== settlementCurrency,
     },
   );
 
   useEffect(() => {
     setLocalOriginalCurrency(originalCurrency ?? settlementCurrency);
-    setLocalOriginalAmount(originalAmount ?? settlementAmount);
+    setLocalOriginalAmount(originalAmount ?? BigMath.abs(settlementAmount));
     setLocalOriginalAmountStr(
       getCurrencyHelpersCached(originalCurrency ?? settlementCurrency).toUIString(
-        originalAmount ?? settlementAmount,
+        originalAmount ?? BigMath.abs(settlementAmount),
         true,
         true,
       ),
     );
     setLocalRate(conversionRate ? String(conversionRate) : '');
+    setIsEditingRate(false);
   }, [
     conversionRate,
     getCurrencyHelpersCached,
@@ -87,25 +89,33 @@ export const OriginalExpenseDetails: React.FC<{
     if (
       localOriginalCurrency === settlementCurrency ||
       !rateQuery.data?.rate ||
-      conversionRate !== undefined
+      isEditingRate ||
+      (Boolean(localRate) && localOriginalCurrency === originalCurrency)
     ) {
       return;
     }
 
     const precision = getRatePrecision(rateQuery.data.rate, MAX_RATE_PRECISION);
     setLocalRate(rateQuery.data.rate.toFixed(precision));
-  }, [conversionRate, localOriginalCurrency, rateQuery.data?.rate, settlementCurrency]);
+  }, [
+    isEditingRate,
+    localOriginalCurrency,
+    localRate,
+    originalCurrency,
+    rateQuery.data?.rate,
+    settlementCurrency,
+  ]);
 
-  const previewAmount = useMemo(() => {
+  const settlementPreviewAmount = useMemo(() => {
     if (localOriginalCurrency === settlementCurrency || !localRate) {
       return localOriginalAmount;
     }
 
-    return currencyConversion({
-      amount: localOriginalAmount,
-      rate: Number(localRate),
-      from: localOriginalCurrency,
-      to: settlementCurrency,
+    return calculateSettlementAmount({
+      paidAmount: localOriginalAmount,
+      paidCurrency: localOriginalCurrency,
+      settlementCurrency,
+      exchangeRate: Number(localRate),
     });
   }, [localOriginalAmount, localOriginalCurrency, localRate, settlementCurrency]);
 
@@ -136,6 +146,7 @@ export const OriginalExpenseDetails: React.FC<{
 
     setLocalOriginalCurrency(currency);
     setLocalRate('');
+    setIsEditingRate(false);
   }, []);
 
   const onChangeRate = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -145,7 +156,7 @@ export const OriginalExpenseDetails: React.FC<{
       return;
     }
 
-    if (! /^[0-9]*\.?[0-9]*$/.test(raw)) {
+    if (!/^[0-9]*\.?[0-9]*$/.test(raw)) {
       return;
     }
 
@@ -155,11 +166,13 @@ export const OriginalExpenseDetails: React.FC<{
   }, []);
 
   const isForeignCurrency = localOriginalCurrency !== settlementCurrency;
+  const parsedRate = Number(localRate);
   const canSave =
     isForeignCurrency &&
-    Boolean(localOriginalAmountStr) &&
+    localOriginalAmount > 0n &&
     Boolean(localRate) &&
-    Number(localRate) > 0 &&
+    Number.isFinite(parsedRate) &&
+    parsedRate > 0 &&
     isCurrencyCode(localOriginalCurrency);
 
   const onSave = useCallback(() => {
@@ -168,13 +181,46 @@ export const OriginalExpenseDetails: React.FC<{
     }
 
     onApply({
-      settlementAmount: previewAmount,
+      settlementAmount: settlementPreviewAmount,
       originalAmount: localOriginalAmount,
       originalCurrency: localOriginalCurrency,
-      conversionRate: Number(localRate),
+      conversionRate: parsedRate,
     });
     setOpen(false);
-  }, [canSave, localOriginalCurrency, localOriginalAmount, localRate, onApply, previewAmount]);
+  }, [
+    canSave,
+    localOriginalCurrency,
+    localOriginalAmount,
+    onApply,
+    parsedRate,
+    settlementPreviewAmount,
+  ]);
+
+  const onEditRate = useCallback(() => {
+    setIsEditingRate((current) => {
+      if (current) {
+        setLocalRate('');
+      }
+
+      return !current;
+    });
+  }, []);
+
+  const paidAmountLabel = useMemo(
+    () =>
+      getCurrencyHelpersCached(localOriginalCurrency).toUIString(localOriginalAmount, false, false),
+    [getCurrencyHelpersCached, localOriginalAmount, localOriginalCurrency],
+  );
+
+  const settlementAmountLabel = useMemo(
+    () =>
+      getCurrencyHelpersCached(settlementCurrency).toUIString(
+        settlementPreviewAmount,
+        false,
+        false,
+      ),
+    [getCurrencyHelpersCached, settlementCurrency, settlementPreviewAmount],
+  );
 
   const summary = useMemo(() => {
     if (
@@ -191,6 +237,14 @@ export const OriginalExpenseDetails: React.FC<{
       rate: formatConversionRate(conversionRate),
       settlementCurrency,
       originalCurrency,
+      settlementAmount: getCurrencyHelpersCached(settlementCurrency).toUIString(
+        calculateSettlementAmount({
+          paidAmount: originalAmount,
+          paidCurrency: originalCurrency,
+          settlementCurrency,
+          exchangeRate: conversionRate,
+        }),
+      ),
     });
   }, [
     conversionRate,
@@ -222,6 +276,17 @@ export const OriginalExpenseDetails: React.FC<{
             <p className="text-sm text-gray-500">
               {t('expense_details.add_expense_details.overseas.description')}
             </p>
+            <div className="grid gap-1 rounded-md border p-3 text-sm">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-gray-500">
+                  {t('expense_details.add_expense_details.overseas.settlement_currency')}
+                </span>
+                <span className="font-medium">{settlementCurrency}</span>
+              </div>
+              <p className="text-xs text-gray-500">
+                {t('expense_details.add_expense_details.overseas.settlement_currency_help')}
+              </p>
+            </div>
             <div className="flex items-end gap-2">
               <div className="flex flex-col gap-2">
                 <Label>{t('expense_details.add_expense_details.overseas.paid_currency')}</Label>
@@ -235,32 +300,53 @@ export const OriginalExpenseDetails: React.FC<{
                 <CurrencyInput
                   currency={localOriginalCurrency}
                   strValue={localOriginalAmountStr}
-                  allowNegative
                   hideSymbol
                   onValueChange={onChangeOriginalAmount}
                 />
               </div>
             </div>
             <div className="flex flex-col gap-2">
-              <Label>{t('expense_details.add_expense_details.overseas.rate')}</Label>
-              <Input
-                type="text"
-                step={`0.${'0'.repeat(MAX_RATE_PRECISION - 1)}1`}
-                min={0}
-                value={localRate}
-                inputMode="decimal"
-                onChange={onChangeRate}
-                disabled={!isForeignCurrency}
-              />
-              {rateQuery.isPending && isForeignCurrency ? (
+              <div className="flex items-center justify-between gap-2">
+                <Label>{t('expense_details.add_expense_details.overseas.rate')}</Label>
+                <Button variant="ghost" size="sm" className="h-7 px-2" onClick={onEditRate}>
+                  {t(
+                    `expense_details.add_expense_details.overseas.${
+                      isEditingRate ? 'use_auto_rate' : 'edit_rate'
+                    }`,
+                  )}
+                </Button>
+              </div>
+              {isEditingRate ? (
+                <Input
+                  type="text"
+                  step={`0.${'0'.repeat(MAX_RATE_PRECISION - 1)}1`}
+                  min={0}
+                  value={localRate}
+                  inputMode="decimal"
+                  onChange={onChangeRate}
+                  disabled={!isForeignCurrency}
+                />
+              ) : null}
+              {rateQuery.isPending && isForeignCurrency && !localRate ? (
                 <span className="text-xs text-gray-500">
                   {t('currency_conversion.fetching_rate')}
                 </span>
               ) : null}
               {localRate ? (
                 <span className="text-xs text-gray-500">
-                  1 {localOriginalCurrency} = {Number(localRate).toFixed(ratePrecision)}{' '}
-                  {settlementCurrency}
+                  {t('expense_details.add_expense_details.overseas.rate_direction', {
+                    paidCurrency: localOriginalCurrency,
+                    rate: Number(localRate).toFixed(ratePrecision),
+                    settlementCurrency,
+                  })}
+                </span>
+              ) : null}
+              {localRate ? (
+                <span className="text-xs text-gray-500">
+                  {t('expense_details.add_expense_details.overseas.conversion_direction', {
+                    paidAmount: paidAmountLabel,
+                    settlementAmount: settlementAmountLabel,
+                  })}
                 </span>
               ) : null}
             </div>
@@ -269,8 +355,11 @@ export const OriginalExpenseDetails: React.FC<{
                 {t('expense_details.add_expense_details.overseas.preview')}
               </div>
               <div className="text-lg font-medium">
-                {getCurrencyHelpersCached(settlementCurrency).toUIString(previewAmount)}
+                {getCurrencyHelpersCached(settlementCurrency).toUIString(settlementPreviewAmount)}
               </div>
+              <p className="text-xs text-gray-500">
+                {t('expense_details.add_expense_details.overseas.preview_help')}
+              </p>
             </div>
           </div>
         </AppDrawer>
