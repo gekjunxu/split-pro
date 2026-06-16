@@ -278,16 +278,21 @@ export const groupRouter = createTRPCRouter({
     ]);
 
 const totalsByUser = expenses.reduce<Record<number, Record<string, bigint>>>(
-  (acc, expense) => {
-    expense.expenseParticipants.forEach((participant) => {
-      acc[participant.userId] ??= {};
-      acc[participant.userId]![expense.currency] =
-        (acc[participant.userId]![expense.currency] ?? 0n) + participant.amount;
-    });
-    return acc;
-  },
-  {},
-);
+      (acc, expense) => {
+        expense.expenseParticipants.forEach((participant) => {
+          const attributedAmount =
+            participant.userId === expense.paidBy
+              ? expense.amount - participant.amount
+              : -participant.amount;
+
+          acc[participant.userId] ??= {};
+          acc[participant.userId]![expense.currency] =
+            (acc[participant.userId]![expense.currency] ?? 0n) + attributedAmount;
+        });
+        return acc;
+      },
+      {},
+    );
 
     return members
       .map(({ user }) => ({
