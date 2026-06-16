@@ -143,6 +143,7 @@ export const AddOrEditExpensePage: React.FC<{
             participants: participants.map((p) => ({
               userId: p.id,
               amount: (p.amount ?? 0n) * sign,
+            })),
             originalAmount: originalAmount !== undefined ? originalAmount * sign : undefined,
             originalCurrency,
             conversionRate,
