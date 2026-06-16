@@ -129,7 +129,7 @@ export const AddOrEditExpensePage: React.FC<{
     setMultipleTransactions([]);
     setIsTransactionLoading(false);
 
-    const sign = isNegative ? -1n : 1n;
+    const sign = isNegative ? 1n : 1n;
 
     try {
       await addExpenseMutation.mutateAsync(
@@ -142,7 +142,10 @@ export const AddOrEditExpensePage: React.FC<{
             splitType,
             participants: participants.map((p) => ({
               userId: p.id,
-              amount: (p.amount ?? 0n) * sign,
+              amount:
+  (p.id === paidBy.id
+    ? amount - (p.amount ?? 0n)
+    : -(p.amount ?? 0n)) * sign,
             })),
             originalAmount: originalAmount !== undefined ? originalAmount * sign : undefined,
             originalCurrency,
