@@ -55,7 +55,7 @@ export async function createExpense(
   currentUserId: number,
   conversionFromParams?: CreateExpense,
 ) {
-  const nonZeroParticipants = getNonZeroParticipants(participants);
+  const nonZeroParticipants = getNonZeroParticipants(participants, paidBy);
 
   const conversionFrom = conversionFromParams
     ? {
@@ -63,7 +63,10 @@ export async function createExpense(
           ...conversionFromParams,
           addedBy: currentUserId,
           expenseParticipants: {
-            create: getNonZeroParticipants(conversionFromParams.participants),
+            create: getNonZeroParticipants(
+              conversionFromParams.participants,
+              conversionFromParams.paidBy,
+            ),
           },
         },
       }
@@ -346,7 +349,8 @@ export async function getCompleteFriendsDetails(userId: number) {
     },
   });
 
-  const friends = viewBalances.reduce< Record<
+  const friends = viewBalances.reduce<
+    Record<
       number,
       {
         id: number;
@@ -354,27 +358,25 @@ export async function getCompleteFriendsDetails(userId: number) {
         name?: string | null;
         balances: { currency: string; amount: bigint }[];
       }
-    >>(
-    (acc, balance) => {
-      const { friendId } = balance;
-      acc[friendId] ??= {
-        balances: [],
-        id: friendId,
-        email: balance.friend.email,
-        name: balance.friend.name,
-      };
+    >
+  >((acc, balance) => {
+    const { friendId } = balance;
+    acc[friendId] ??= {
+      balances: [],
+      id: friendId,
+      email: balance.friend.email,
+      name: balance.friend.name,
+    };
 
-      if (0n !== balance.amount) {
-        acc[friendId]?.balances.push({
-          currency: balance.currency,
-          amount: balance.amount,
-        });
-      }
+    if (0n !== balance.amount) {
+      acc[friendId]?.balances.push({
+        currency: balance.currency,
+        amount: balance.amount,
+      });
+    }
 
-      return acc;
-    },
-    {},
-  );
+    return acc;
+  }, {});
 
   return friends;
 }
@@ -405,16 +407,13 @@ export async function importUserBalanceFromSplitWise(
 
   const users = await createUsersFromSplitwise(splitWiseUsers);
 
-  const userMap = users.reduce< Record<string, User>>(
-    (acc, user) => {
-      if (user.email) {
-        acc[user.email] = user;
-      }
+  const userMap = users.reduce<Record<string, User>>((acc, user) => {
+    if (user.email) {
+      acc[user.email] = user;
+    }
 
-      return acc;
-    },
-    {},
-  );
+    return acc;
+  }, {});
 
   const currencyHelperCache: Record<string, ReturnType<typeof getCurrencyHelpers>['toSafeBigInt']> =
     {};
@@ -519,16 +518,13 @@ export async function importGroupFromSplitwise(
 
   const users = await createUsersFromSplitwise(Object.values(splitwiseUserMap));
 
-  const userMap = users.reduce< Record<string, User>>(
-    (acc, user) => {
-      if (user.email) {
-        acc[user.email] = user;
-      }
+  const userMap = users.reduce<Record<string, User>>((acc, user) => {
+    if (user.email) {
+      acc[user.email] = user;
+    }
 
-      return acc;
-    },
-    {},
-  );
+    return acc;
+  }, {});
 
   const missingGroups = await Promise.all(
     splitWiseGroups.map(async (group) => {
@@ -565,8 +561,22 @@ export async function importGroupFromSplitwise(
   await db.$transaction(operations);
 }
 
-const getNonZeroParticipants = (participants: { userId: number; amount: bigint }[]) =>
-  participants.length > 1 ? participants.filter((p) => 0n !== p.amount) : participants;
+const getNonZeroParticipants = (
+  participants: { userId: number; amount: bigint }[],
+  paidBy?: number,
+) => {
+  if (participants.length <= 1) {
+    return participants;
+  }
+
+  const nonZeroParticipants = participants.filter((p) => 0n !== p.amount);
+  if (0 < nonZeroParticipants.length) {
+    return nonZeroParticipants;
+  }
+
+  const payer = participants.find((p) => p.userId === paidBy);
+  return payer ? [payer] : nonZeroParticipants;
+};
 
 interface HistoricalBalance {
   userId: number;
