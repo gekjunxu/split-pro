@@ -56,9 +56,18 @@ const BalancePage: NextPageWithUser<{
   const setGroupDefaultCurrency = useCurrencyPreferenceStore((s) => s.setGroupDefaultCurrency);
 
   const groupDetailQuery = api.group.getGroupDetails.useQuery({ groupId });
-  const groupTotalQuery = api.group.getGroupTotals.useQuery({ groupId });
-  const groupMemberSpendingQuery = api.group.getGroupMemberSpendingTotals.useQuery({ groupId });
-  const groupMemberAttributedQuery = api.group.getGroupMemberAttributedTotals.useQuery({ groupId });
+  const groupTotalQuery = api.group.getGroupTotals.useQuery(
+    { groupId },
+    { refetchOnMount: 'always' },
+  );
+  const groupMemberSpendingQuery = api.group.getGroupMemberSpendingTotals.useQuery(
+    { groupId },
+    { refetchOnMount: 'always' },
+  );
+  const groupMemberAttributedQuery = api.group.getGroupMemberAttributedTotals.useQuery(
+    { groupId },
+    { refetchOnMount: 'always' },
+  );
   const expensesQuery = api.expense.getGroupExpenses.useQuery({ groupId });
   const deleteGroupMutation = api.group.delete.useMutation();
   const leaveGroupMutation = api.group.leaveGroup.useMutation();

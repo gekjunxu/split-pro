@@ -35,6 +35,7 @@ const AddBankTransactions: React.FC<{
   } = useAddExpenseStore((s) => s.actions);
 
   const addExpenseMutation = api.expense.addOrEditExpense.useMutation();
+  const apiUtils = api.useUtils();
 
   const router = useRouter();
 
@@ -99,7 +100,8 @@ const AddBankTransactions: React.FC<{
       }) as CreateExpense[];
 
     await addExpenseMutation.mutateAsync(expenses, {
-      onSuccess: () => {
+      onSuccess: async () => {
+        await apiUtils.invalidate();
         setMultipleTransactions([]);
         setIsTransactionLoading(false);
         router.back();
@@ -114,6 +116,7 @@ const AddBankTransactions: React.FC<{
     router,
     resetState,
     addExpenseMutation,
+    apiUtils,
     group,
     paidBy,
     splitType,

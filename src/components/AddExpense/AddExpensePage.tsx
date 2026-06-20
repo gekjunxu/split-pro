@@ -82,6 +82,7 @@ export const AddOrEditExpensePage: React.FC<{
   } = useAddExpenseStore((s) => s.actions);
 
   const addExpenseMutation = api.expense.addOrEditExpense.useMutation();
+  const apiUtils = api.useUtils();
   const updateProfile = api.user.updateUserDetail.useMutation();
   const { update } = useSession();
 
@@ -158,8 +159,10 @@ export const AddOrEditExpensePage: React.FC<{
           },
         ],
         {
-          onSuccess: (d) => {
+          onSuccess: async (d) => {
             if (d) {
+              await apiUtils.invalidate();
+
               if (multipleTransactions.length > 0) {
                 const allTransactions = [...multipleTransactions];
                 const transactionToAdd = allTransactions.pop();
@@ -227,6 +230,7 @@ export const AddOrEditExpensePage: React.FC<{
     router,
     resetState,
     addExpenseMutation,
+    apiUtils,
     group,
     paidBy,
     splitType,
