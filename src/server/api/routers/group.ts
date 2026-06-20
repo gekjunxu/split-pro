@@ -16,13 +16,12 @@ import {
   serializeDefaultSplit,
 } from '~/lib/defaultSplit';
 import { simplifyDebts } from '~/lib/simplify';
-import {
-  sendGroupSimplifyDebtsToggleNotification,
-} from '~/server/api/services/notificationService';
+import { sendGroupSimplifyDebtsToggleNotification } from '~/server/api/services/notificationService';
 import { createTRPCRouter, groupProcedure, protectedProcedure } from '~/server/api/trpc';
 
-const normalizeFrequentCurrencies = (currencies: string[] | null | undefined): CurrencyCode[] =>
-  [...new Set((currencies ?? []).filter(isCurrencyCode))];
+const normalizeFrequentCurrencies = (currencies: string[] | null | undefined): CurrencyCode[] => [
+  ...new Set((currencies ?? []).filter(isCurrencyCode)),
+];
 
 export const groupRouter = createTRPCRouter({
   create: protectedProcedure
@@ -277,24 +276,19 @@ export const groupRouter = createTRPCRouter({
       }),
     ]);
 
-const totalsByUser = expenses.reduce<Record<number, Record<string, bigint>>>(
-      (acc, expense) => {
-        expense.expenseParticipants.forEach((participant) => {
-const attributedAmount =
-  participant.userId === expense.paidBy
-    ? expense.expenseParticipants.length === 1
-      ? participant.amount
-      : expense.amount - participant.amount
-    : -participant.amount;
+    const totalsByUser = expenses.reduce<Record<number, Record<string, bigint>>>((acc, expense) => {
+      expense.expenseParticipants.forEach((participant) => {
+        const attributedAmount =
+          participant.userId === expense.paidBy
+            ? expense.amount - participant.amount
+            : -participant.amount;
 
-          acc[participant.userId] ??= {};
-          acc[participant.userId]![expense.currency] =
-            (acc[participant.userId]![expense.currency] ?? 0n) + attributedAmount;
-        });
-        return acc;
-      },
-      {},
-    );
+        acc[participant.userId] ??= {};
+        acc[participant.userId]![expense.currency] =
+          (acc[participant.userId]![expense.currency] ?? 0n) + attributedAmount;
+      });
+      return acc;
+    }, {});
 
     return members
       .map(({ user }) => ({
