@@ -18,6 +18,7 @@ import {
 import { simplifyDebts } from '~/lib/simplify';
 import { sendGroupSimplifyDebtsToggleNotification } from '~/server/api/services/notificationService';
 import { createTRPCRouter, groupProcedure, protectedProcedure } from '~/server/api/trpc';
+import { calculateMemberAttributedTotals } from './groupStats';
 
 const normalizeFrequentCurrencies = (currencies: string[] | null | undefined): CurrencyCode[] => [
   ...new Set((currencies ?? []).filter(isCurrencyCode)),
@@ -276,26 +277,7 @@ export const groupRouter = createTRPCRouter({
       }),
     ]);
 
-    const totalsByUser = expenses.reduce<Record<number, Record<string, bigint>>>((acc, expense) => {
-      if (0 === expense.expenseParticipants.length) {
-        acc[expense.paidBy] ??= {};
-        acc[expense.paidBy]![expense.currency] =
-          (acc[expense.paidBy]![expense.currency] ?? 0n) + expense.amount;
-        return acc;
-      }
-
-      expense.expenseParticipants.forEach((participant) => {
-        const attributedAmount =
-          participant.userId === expense.paidBy
-            ? expense.amount - participant.amount
-            : -participant.amount;
-
-        acc[participant.userId] ??= {};
-        acc[participant.userId]![expense.currency] =
-          (acc[participant.userId]![expense.currency] ?? 0n) + attributedAmount;
-      });
-      return acc;
-    }, {});
+    const totalsByUser = calculateMemberAttributedTotals(expenses);
 
     return members
       .map(({ user }) => ({
