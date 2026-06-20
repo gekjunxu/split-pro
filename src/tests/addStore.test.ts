@@ -6,6 +6,7 @@ import {
   calculateParticipantSplit,
   calculateSplitShareBasedOnAmount,
   initSplitShares,
+  useAddExpenseStore,
 } from '~/store/addStore';
 
 // Mock dependencies
@@ -50,6 +51,18 @@ const createSplitShares = (participants: Participant[], splitType: SplitType, sh
 
   return splitShares;
 };
+
+describe('useAddExpenseStore', () => {
+  it('should keep negative expense sign separately from the absolute amount', () => {
+    useAddExpenseStore.getState().actions.resetState();
+
+    useAddExpenseStore.getState().actions.setAmount(-12345n);
+
+    const state = useAddExpenseStore.getState();
+    expect(state.amount).toBe(12345n);
+    expect(state.isNegative).toBe(true);
+  });
+});
 
 describe('calculateParticipantSplit', () => {
   describe('Edge cases', () => {
@@ -612,11 +625,10 @@ describe('calculateSplitShareBasedOnAmount', () => {
 
       calculateSplitShareBasedOnAmount(12000n, participants, SplitType.SHARE, splitShares);
 
-      // Shares should be proportional: 6000:3000:3000 = 2:1:1
-      // Multiplied by 100 and normalized
-      expect(splitShares[user1.id]![SplitType.SHARE]).toBe(200n); // 2 shares * 100
-      expect(splitShares[user2.id]![SplitType.SHARE]).toBe(100n); // 1 share * 100
-      expect(splitShares[user3.id]![SplitType.SHARE]).toBe(100n); // 1 share * 100
+      // Shares preserve the participant amounts instead of reducing to 2:1:1.
+      expect(splitShares[user1.id]![SplitType.SHARE]).toBe(600000n);
+      expect(splitShares[user2.id]![SplitType.SHARE]).toBe(300000n);
+      expect(splitShares[user3.id]![SplitType.SHARE]).toBe(300000n);
     });
 
     it('should handle payer in share calculation', () => {
@@ -628,11 +640,23 @@ describe('calculateSplitShareBasedOnAmount', () => {
 
       calculateSplitShareBasedOnAmount(12000n, participants, SplitType.SHARE, splitShares, user1);
 
-      // User1 is payer: paid 12000n but their amount is 6000n, so they owe 6000n
-      // Shares: 6000:3000:3000 = 2:1:1
-      expect(splitShares[user1.id]![SplitType.SHARE]).toBe(200n);
-      expect(splitShares[user2.id]![SplitType.SHARE]).toBe(100n);
-      expect(splitShares[user3.id]![SplitType.SHARE]).toBe(100n);
+      // User1 is payer: paid 12000n but their amount is 6000n, so they owe 6000n.
+      expect(splitShares[user1.id]![SplitType.SHARE]).toBe(600000n);
+      expect(splitShares[user2.id]![SplitType.SHARE]).toBe(300000n);
+      expect(splitShares[user3.id]![SplitType.SHARE]).toBe(300000n);
+    });
+
+    it('should preserve foreign-currency-like share values instead of reducing them', () => {
+      const participants = createParticipants([user1, user2], [100n, -100n]);
+      const splitShares: Record<number, Record<SplitType, bigint | undefined>> = {};
+      participants.forEach((p) => {
+        splitShares[p.id] = initSplitShares();
+      });
+
+      calculateSplitShareBasedOnAmount(300n, participants, SplitType.SHARE, splitShares, user1);
+
+      expect(splitShares[user1.id]![SplitType.SHARE]).toBe(20000n);
+      expect(splitShares[user2.id]![SplitType.SHARE]).toBe(10000n);
     });
 
     it('should handle zero amount', () => {

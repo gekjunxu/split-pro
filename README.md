@@ -28,6 +28,21 @@ See [docker/README.md](docker/README.md) and [docs/CONFIGURATION.md](docs/CONFIG
 - Activity feed with edits and deletions.
 - Detailed balances per person and per group.
 
+## Local fork changes
+
+This section tracks changes made in this fork after branching from the main SplitPro repo.
+Keep it updated when adding local behavior so future rebases and upstream comparisons are easier.
+
+- Negative expense entry is supported for refunds and corrections. Amount input handling keeps the
+  negative sign separate from the stored absolute amount.
+- Group statistics refresh after adding expenses from the regular add-expense flow and bank
+  transaction flow.
+- Group attributed totals include solo and self-only expenses so personal group spending summaries
+  stay accurate.
+- Share-based splits preserve entered reference values when reopening an expense instead of
+  reducing them to the lowest ratio. For example, a JPY 300 expense split as 200 and 100 stays
+  visible as 200 and 100, not 2 and 1.
+
 ## UI preview
 
 ![SplitPro banner](public/og_banner.png)

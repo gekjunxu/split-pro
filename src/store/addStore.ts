@@ -441,22 +441,14 @@ export function calculateSplitShareBasedOnAmount(
       break;
 
     case SplitType.SHARE:
-      const amounts = participants
-        .filter(({ amount }) => Boolean(amount))
-        .map((p) =>
-          p.id === paidBy?.id ? BigMath.abs(amount - p.amount!) : BigMath.abs(p.amount!),
-        )
-        .filter((s) => s !== 0n);
-
-      const gcdValue = amounts.length > 1 ? amounts.reduce((a, b) => BigMath.gcd(a, b)) : 1n;
-
       participants.forEach((p) => {
+        const participantShareAmount =
+          p.id === paidBy?.id
+            ? BigMath.abs(amount - (p.amount ?? 0n))
+            : BigMath.abs(p.amount ?? 0n);
+
         splitShares[p.id]![splitType] =
-          0n === amount
-            ? 0n
-            : ((p.id === paidBy?.id ? BigMath.abs(amount - p.amount!) : BigMath.abs(p.amount!)) *
-                100n) /
-              gcdValue;
+          0n === amount ? 0n : participantShareAmount * 100n;
       });
 
       break;
