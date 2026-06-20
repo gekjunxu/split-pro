@@ -130,8 +130,8 @@ export const getCurrencyHelpers = ({
     return cleaned;
   };
 
-  const normalizeToMaxLength = (inputString: string) => {
-    const sanitized = sanitizeInput(inputString);
+  const normalizeToMaxLength = (inputString: string, signed = false) => {
+    const sanitized = sanitizeInput(inputString, signed);
     const trimmedExceedingDecimals = trimExceedingDecimals(sanitized);
     return trimmedExceedingDecimals.endsWith(decimalSeparator)
       ? trimmedExceedingDecimals.slice(0, -1)
@@ -156,6 +156,7 @@ export const getCurrencyHelpers = ({
         sign +
         normalizeToMaxLength(
           decimalDigits > 0 ? `${integer}${decimalSeparator}${fraction}` : integer,
+          signed,
         )
       );
     }
@@ -173,7 +174,7 @@ export const getCurrencyHelpers = ({
     }
 
     if (typeof value === 'string') {
-      return normalizeToMaxLength(value);
+      return normalizeToMaxLength(value, signed);
     }
 
     return '';
@@ -189,7 +190,7 @@ export const getCurrencyHelpers = ({
     }
 
     const sign = value.startsWith('-') && signed ? '-' : '';
-    const normalizedToMaxLength = normalizeToMaxLength(value);
+    const normalizedToMaxLength = normalizeToMaxLength(value, signed);
     const bigintValue = parseToBigIntBeforeSubmit(normalizedToMaxLength);
     const parts = formatter.formatToParts(BigMath.abs(bigintValue) / decimalMultiplierN);
     const auxParts = formatter.formatToParts(

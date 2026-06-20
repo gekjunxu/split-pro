@@ -143,6 +143,25 @@ describe('getCurrencyHelpers', () => {
     });
   });
 
+  describe('parseToCleanString', () => {
+    const { format, parseToCleanString } = getCurrencyHelpers({
+      locale: 'en-US',
+      currency: 'USD',
+    });
+
+    it.each([
+      ['-$123.45', '-123.45'],
+      ['-123.45', '-123.45'],
+      ['$123.45', '123.45'],
+    ])('should preserve negative strings with signed flag', (input, expected) => {
+      expect(parseToCleanString(input, true)).toBe(expected);
+    });
+
+    it('should keep a negative string negative when formatting with signed flag', () => {
+      expect(format('-123.45', { signed: true, hideSymbol: true })).toBe('-123.45');
+    });
+  });
+
   describe('sanitizeInput', () => {
     const { sanitizeInput } = getCurrencyHelpers({
       locale: 'en-US',
