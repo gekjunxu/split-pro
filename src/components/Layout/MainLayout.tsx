@@ -13,43 +13,8 @@ import { useTranslation } from 'next-i18next';
 import React from 'react';
 import { LoadingSpinner } from '../ui/spinner';
 
-const MAIN_LAYOUT_SCROLL_STORAGE_KEY = 'splitpro:mainlayout-scroll';
-
-const getStoredScrollPositions = (): Record<string, number> => {
-  try {
-    const parsedValue: unknown = JSON.parse(
-      sessionStorage.getItem(MAIN_LAYOUT_SCROLL_STORAGE_KEY) ?? '{}',
-    );
-
-    if (!parsedValue || 'object' !== typeof parsedValue || Array.isArray(parsedValue)) {
-      return {};
-    }
-
-    return Object.fromEntries(
-      Object.entries(parsedValue)
-        .filter((entry): entry is [string, number] => 'number' === typeof entry[1])
-        .map(([path, scrollTop]) => [path, scrollTop]),
-    );
-  } catch {
-    return {};
-  }
-};
-
-const saveMainLayoutScrollPosition = (path: string) => {
-  const mainLayout = document.getElementById('mainlayout');
-
-  if (!mainLayout) {
-    return;
-  }
-
-  sessionStorage.setItem(
-    MAIN_LAYOUT_SCROLL_STORAGE_KEY,
-    JSON.stringify({
-      ...getStoredScrollPositions(),
-      [path]: mainLayout.scrollTop,
-    }),
-  );
-};
+const mainLayoutScrollPositions = new Map<string, number>();
+const SCROLL_RESTORE_TIMEOUT_MS = 2000;
 
 interface MainLayoutProps {
   title?: React.ReactNode;
@@ -70,34 +35,47 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   const { t } = useTranslation();
   const router = useRouter();
   const currentPath = router.pathname;
+  const mainLayoutRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
-    const mainLayout = document.getElementById('mainlayout');
+    const mainLayout = mainLayoutRef.current;
 
     if (!mainLayout) {
       return;
     }
 
-    const storedScrollTop = getStoredScrollPositions()[router.asPath];
+    const storedScrollTop = mainLayoutScrollPositions.get(router.asPath);
+    const startedAt = Date.now();
 
     const restoreScrollPosition = () => {
-      if (storedScrollTop !== undefined) {
-        mainLayout.scrollTop = storedScrollTop;
+      if (storedScrollTop === undefined) {
+        return;
+      }
+
+      mainLayout.scrollTop = storedScrollTop;
+
+      if (SCROLL_RESTORE_TIMEOUT_MS < Date.now() - startedAt) {
+        resizeObserver.disconnect();
       }
     };
 
-    restoreScrollPosition();
+    const resizeObserver = new ResizeObserver(restoreScrollPosition);
+
+    resizeObserver.observe(mainLayout);
     const animationFrameId = requestAnimationFrame(restoreScrollPosition);
-    const restoreTimeoutIds = [100, 300, 700].map((delayMs) =>
+    const restoreTimeoutIds = [100, 300, 700, 1200, 2000].map((delayMs) =>
       window.setTimeout(restoreScrollPosition, delayMs),
     );
 
-    const saveCurrentScrollPosition = () => saveMainLayoutScrollPosition(router.asPath);
+    const saveCurrentScrollPosition = () => {
+      mainLayoutScrollPositions.set(router.asPath, mainLayout.scrollTop);
+    };
 
     router.events.on('routeChangeStart', saveCurrentScrollPosition);
     window.addEventListener('beforeunload', saveCurrentScrollPosition);
 
     return () => {
+      resizeObserver.disconnect();
       cancelAnimationFrame(animationFrameId);
       restoreTimeoutIds.forEach((timeoutId) => window.clearTimeout(timeoutId));
       saveCurrentScrollPosition();
@@ -153,6 +131,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
           />
         </nav>
         <div
+          ref={mainLayoutRef}
           className="w-full overflow-auto lg:border-x lg:border-gray-900 lg:px-6"
           id="mainlayout"
         >
