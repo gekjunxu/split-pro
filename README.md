@@ -39,9 +39,10 @@ Keep it updated when adding local behavior so future rebases and upstream compar
   transaction flow.
 - Group attributed totals include solo and self-only expenses so personal group spending summaries
   stay accurate.
-- Share-based splits preserve entered reference values when reopening an expense instead of
-  reducing them to the lowest ratio. For example, a JPY 300 expense split as 200 and 100 stays
-  visible as 200 and 100, not 2 and 1.
+- Share-based splits persist entered reference values on the expense and restore them when
+  reopening an expense instead of reducing or reconstructing them from converted participant
+  amounts. For example, a JPY 300 expense split as 200 and 100 stays visible as 200 and 100, not 2
+  and 1.
 
 ## UI preview
 

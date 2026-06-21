@@ -1,7 +1,8 @@
-import { PrismaClient, SplitType } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 
 import { createExpense, deleteExpense, editExpense } from '~/server/api/services/splitService';
 import { dummyData } from '~/dummies';
+import { serializeSplitShares } from '~/lib/splitShares';
 import { calculateParticipantSplit } from '~/store/addStore';
 import assert from 'node:assert';
 import { settleBalances } from './seedSettlement';
@@ -48,6 +49,7 @@ async function createExpenses() {
         {
           ...expense,
           paidBy: expense.paidBy.id,
+          splitShares: serializeSplitShares(expense.splitShares),
           participants: calculateParticipantSplit(expense as any).participants.map((p) => ({
             userId: p.id,
             amount: p.amount ?? 0n,
@@ -83,6 +85,7 @@ async function editExpenses() {
           ...expense,
           expenseId: idLookup.get(idx),
           paidBy: expense.paidBy.id,
+          splitShares: serializeSplitShares(expense.splitShares),
           participants: calculateParticipantSplit(expense as any).participants.map((p) => ({
             userId: p.id,
             amount: p.amount ?? 0n,

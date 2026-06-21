@@ -8,6 +8,7 @@ import { env } from '~/env';
 import { cronFromBackend } from '~/lib/cron';
 import { parseCurrencyCode } from '~/lib/currency';
 import { hasOriginalExpenseDetails } from '~/lib/originalExpense';
+import { deserializeSplitShares } from '~/lib/splitShares';
 import { isBankConnectionConfigured } from '~/server/bankTransactionHelper';
 import { useAddExpenseStore } from '~/store/addStore';
 import { type NextPageWithUser } from '~/types';
@@ -226,6 +227,13 @@ const AddPage: NextPageWithUser<{
       })),
       expenseQuery.data.splitType,
     );
+    const savedSplitShares = deserializeSplitShares(
+      (expenseQuery.data as typeof expenseQuery.data & { splitShares?: unknown }).splitShares,
+      expenseQuery.data.splitType,
+    );
+    if (savedSplitShares) {
+      applySplitPreset(expenseQuery.data.splitType, savedSplitShares);
+    }
     useAddExpenseStore.setState({ showFriends: false });
     setExpenseDate(expenseQuery.data.expenseDate);
     if (expenseQuery.data.recurrence) {
@@ -263,6 +271,7 @@ const AddPage: NextPageWithUser<{
     setGroup,
     setPaidBy,
     setParticipants,
+    applySplitPreset,
     setOriginalExpense,
     setCardId,
     setCronExpression,

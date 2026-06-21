@@ -11,6 +11,7 @@ import { api } from '~/utils/api';
 import { toast } from 'sonner';
 import { useTranslationWithUtils } from '~/hooks/useTranslationWithUtils';
 import { cronToBackend } from '~/lib/cron';
+import { serializeSplitShares } from '~/lib/splitShares';
 import { cn } from '~/lib/utils';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -202,6 +203,7 @@ export const AddOrEditExpensePage: React.FC<{
             amount: convertedAmount,
             groupId: group?.id ?? null,
             splitType,
+            splitShares: serializeSplitShares(splitShares),
             participants: normalizedParticipants,
             originalAmount: shouldAutoConvertCash
               ? signedAmount
@@ -284,6 +286,7 @@ export const AddOrEditExpensePage: React.FC<{
     isNegative,
     amount,
     participants,
+    splitShares,
     category,
     originalAmount,
     originalCurrency,
@@ -507,6 +510,7 @@ export const AddOrEditExpensePage: React.FC<{
                       {generateSplitDescription(
                         splitType,
                         participants,
+                        splitShares,
                         paidBy,
                         currentUser,
                       )}

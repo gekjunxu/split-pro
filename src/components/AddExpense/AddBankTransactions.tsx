@@ -5,6 +5,7 @@ import { BankingTransactionList } from './BankTransactions/BankingTransactionLis
 import { useRouter } from 'next/router';
 import { api } from '~/utils/api';
 import { type CreateExpense } from '~/types/expense.types';
+import { serializeSplitShares } from '~/lib/splitShares';
 
 const AddBankTransactions: React.FC<{
   bankConnectionEnabled: boolean;
@@ -68,6 +69,7 @@ const AddBankTransactions: React.FC<{
           amount: tempItem.amount,
           groupId: group?.id ?? null,
           splitType,
+          splitShares: serializeSplitShares(splitShares),
           paidBy: paidBy.id,
           participants: participants.map((p) => ({
             userId: p.id,

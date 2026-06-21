@@ -1,6 +1,8 @@
 import { type Expense, type ExpenseParticipant, SplitType } from '@prisma/client';
 import { type ZodTypeAny, z } from 'zod';
 
+import type { SerializedSplitShares } from '~/lib/splitShares';
+
 /**
  * Converts a schema to accept both a single value and an array of values.
  * If a single value is provided, it will be wrapped in an array.
@@ -23,6 +25,7 @@ export type CreateExpense = Omit<
   | 'originalAmount'
   | 'originalCurrency'
   | 'conversionRate'
+  | 'splitShares'
   | 'cardId'
   | 'transactionId'
   | 'conversionToId'
@@ -33,6 +36,7 @@ export type CreateExpense = Omit<
   originalAmount?: bigint | null;
   originalCurrency?: string | null;
   conversionRate?: number | null;
+  splitShares?: SerializedSplitShares;
   cardId?: number | null;
   expenseId?: string;
   transactionId?: string;
@@ -56,6 +60,7 @@ export const createExpenseSchema = z.object({
   ]),
   currency: z.string(),
   participants: z.array(z.object({ userId: z.number(), amount: z.bigint() })),
+  splitShares: z.record(z.string(), z.record(z.string(), z.string())).optional(),
   originalAmount: z.bigint().nullable().optional(),
   originalCurrency: z.string().nullable().optional(),
   conversionRate: z.number().positive().max(Number.MAX_SAFE_INTEGER).nullable().optional(),
