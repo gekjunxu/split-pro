@@ -13,6 +13,44 @@ import { useTranslation } from 'next-i18next';
 import React from 'react';
 import { LoadingSpinner } from '../ui/spinner';
 
+const MAIN_LAYOUT_SCROLL_STORAGE_KEY = 'splitpro:mainlayout-scroll';
+
+const getStoredScrollPositions = (): Record<string, number> => {
+  try {
+    const parsedValue: unknown = JSON.parse(
+      sessionStorage.getItem(MAIN_LAYOUT_SCROLL_STORAGE_KEY) ?? '{}',
+    );
+
+    if (!parsedValue || 'object' !== typeof parsedValue || Array.isArray(parsedValue)) {
+      return {};
+    }
+
+    return Object.fromEntries(
+      Object.entries(parsedValue)
+        .filter((entry): entry is [string, number] => 'number' === typeof entry[1])
+        .map(([path, scrollTop]) => [path, scrollTop]),
+    );
+  } catch {
+    return {};
+  }
+};
+
+const saveMainLayoutScrollPosition = (path: string) => {
+  const mainLayout = document.getElementById('mainlayout');
+
+  if (!mainLayout) {
+    return;
+  }
+
+  sessionStorage.setItem(
+    MAIN_LAYOUT_SCROLL_STORAGE_KEY,
+    JSON.stringify({
+      ...getStoredScrollPositions(),
+      [path]: mainLayout.scrollTop,
+    }),
+  );
+};
+
 interface MainLayoutProps {
   title?: React.ReactNode;
   children: React.ReactNode;
@@ -32,6 +70,41 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   const { t } = useTranslation();
   const router = useRouter();
   const currentPath = router.pathname;
+
+  React.useEffect(() => {
+    const mainLayout = document.getElementById('mainlayout');
+
+    if (!mainLayout) {
+      return;
+    }
+
+    const storedScrollTop = getStoredScrollPositions()[router.asPath];
+
+    const restoreScrollPosition = () => {
+      if (storedScrollTop !== undefined) {
+        mainLayout.scrollTop = storedScrollTop;
+      }
+    };
+
+    restoreScrollPosition();
+    const animationFrameId = requestAnimationFrame(restoreScrollPosition);
+    const restoreTimeoutIds = [100, 300, 700].map((delayMs) =>
+      window.setTimeout(restoreScrollPosition, delayMs),
+    );
+
+    const saveCurrentScrollPosition = () => saveMainLayoutScrollPosition(router.asPath);
+
+    router.events.on('routeChangeStart', saveCurrentScrollPosition);
+    window.addEventListener('beforeunload', saveCurrentScrollPosition);
+
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+      restoreTimeoutIds.forEach((timeoutId) => window.clearTimeout(timeoutId));
+      saveCurrentScrollPosition();
+      router.events.off('routeChangeStart', saveCurrentScrollPosition);
+      window.removeEventListener('beforeunload', saveCurrentScrollPosition);
+    };
+  }, [router.asPath, router.events]);
 
   return (
     <div className="bg-background h-full w-full">
