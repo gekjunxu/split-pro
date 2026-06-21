@@ -14,6 +14,7 @@ const cardInputSchema = z.object({
   defaultCurrency: z.string().trim().nullable().optional(),
   settlementCurrency: z.string().trim().nullable().optional(),
   defaultRate: z.number().positive().nullable().optional(),
+  autoConvertToSettlement: z.boolean().default(false),
   startingBalance: z.bigint().nullable().optional(),
 });
 
@@ -51,6 +52,7 @@ export const cardRouter = createTRPCRouter({
         defaultCurrency: normalizeNullableText(input.defaultCurrency),
         settlementCurrency: normalizeNullableText(input.settlementCurrency),
         defaultRate: input.defaultRate ?? null,
+        autoConvertToSettlement: input.autoConvertToSettlement,
         startingBalance: input.startingBalance ?? null,
       },
     }),
@@ -72,6 +74,7 @@ export const cardRouter = createTRPCRouter({
           defaultCurrency: normalizeNullableText(input.defaultCurrency),
           settlementCurrency: normalizeNullableText(input.settlementCurrency),
           defaultRate: input.defaultRate ?? null,
+          autoConvertToSettlement: input.autoConvertToSettlement,
           startingBalance: input.startingBalance ?? null,
         },
       });

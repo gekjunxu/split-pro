@@ -82,9 +82,14 @@ export const AddOrEditExpensePage: React.FC<{
   } = useAddExpenseStore((s) => s.actions);
 
   const addExpenseMutation = api.expense.addOrEditExpense.useMutation();
+  const cardsQuery = api.card.list.useQuery();
   const apiUtils = api.useUtils();
   const updateProfile = api.user.updateUserDetail.useMutation();
   const { update } = useSession();
+  const selectedPaymentSource = React.useMemo(
+    () => cardsQuery.data?.find((card) => card.id === cardId),
+    [cardId, cardsQuery.data],
+  );
 
   const onCurrencyPick = useCallback(
     (newCurrency: CurrencyCode | null) => {
@@ -131,23 +136,82 @@ export const AddOrEditExpensePage: React.FC<{
     setIsTransactionLoading(false);
 
     const sign = isNegative ? -1n : 1n;
+    const signedAmount = amount * sign;
+    const signedParticipants = participants.map((p) => ({
+      userId: p.id,
+      amount: (p.amount ?? 0n) * sign,
+    }));
+    const shouldAutoConvertCash =
+      !originalCurrency &&
+      !conversionRate &&
+      selectedPaymentSource?.type === 'CASH' &&
+      selectedPaymentSource.autoConvertToSettlement &&
+      selectedPaymentSource.defaultRate &&
+      isCurrencyCode(selectedPaymentSource.defaultCurrency) &&
+      isCurrencyCode(selectedPaymentSource.settlementCurrency) &&
+      selectedPaymentSource.defaultCurrency === currency &&
+      selectedPaymentSource.settlementCurrency !== selectedPaymentSource.defaultCurrency;
+    const autoConversionRate =
+      shouldAutoConvertCash && selectedPaymentSource.defaultRate
+        ? 1 / selectedPaymentSource.defaultRate
+        : undefined;
+    const convertedAmount =
+      shouldAutoConvertCash && autoConversionRate
+        ? currencyConversion({
+            amount: signedAmount,
+            rate: autoConversionRate,
+            from: selectedPaymentSource.defaultCurrency as CurrencyCode,
+            to: selectedPaymentSource.settlementCurrency as CurrencyCode,
+          })
+        : signedAmount;
+    const convertedParticipants =
+      shouldAutoConvertCash && autoConversionRate
+        ? signedParticipants.map((participant) => ({
+            ...participant,
+            amount: currencyConversion({
+              amount: participant.amount,
+              rate: autoConversionRate,
+              from: selectedPaymentSource.defaultCurrency as CurrencyCode,
+              to: selectedPaymentSource.settlementCurrency as CurrencyCode,
+            }),
+          }))
+        : signedParticipants;
+    const participantRoundingDelta = convertedParticipants.reduce(
+      (total, participant) => total + participant.amount,
+      0n,
+    );
+    const normalizedParticipants =
+      0n !== participantRoundingDelta
+        ? convertedParticipants.map((participant) =>
+            participant.userId === paidBy.id
+              ? { ...participant, amount: participant.amount - participantRoundingDelta }
+              : participant,
+          )
+        : convertedParticipants;
+    const mutationCurrency =
+      shouldAutoConvertCash && isCurrencyCode(selectedPaymentSource.settlementCurrency)
+        ? selectedPaymentSource.settlementCurrency
+        : currency;
 
     try {
       await addExpenseMutation.mutateAsync(
         [
           {
             name: description,
-            currency,
-            amount: amount * sign,
+            currency: mutationCurrency,
+            amount: convertedAmount,
             groupId: group?.id ?? null,
             splitType,
-            participants: participants.map((p) => ({
-              userId: p.id,
-              amount: (p.amount ?? 0n) * sign,
-            })),
-            originalAmount: originalAmount !== undefined ? originalAmount * sign : undefined,
-            originalCurrency,
-            conversionRate,
+            participants: normalizedParticipants,
+            originalAmount: shouldAutoConvertCash
+              ? signedAmount
+              : originalAmount !== undefined
+                ? originalAmount * sign
+                : undefined,
+            originalCurrency: shouldAutoConvertCash
+              ? selectedPaymentSource.defaultCurrency
+              : originalCurrency,
+            conversionRate: shouldAutoConvertCash ? autoConversionRate : conversionRate,
             cardId,
             paidBy: paidBy.id,
             category,
@@ -194,7 +258,7 @@ export const AddOrEditExpensePage: React.FC<{
                   ...session,
                   user: {
                     ...(session?.user ?? {}),
-                    currency,
+                    currency: mutationCurrency,
                   },
                 }))
                   .then(() => navPromise())
@@ -225,6 +289,7 @@ export const AddOrEditExpensePage: React.FC<{
     originalCurrency,
     conversionRate,
     cardId,
+    selectedPaymentSource,
     expenseDate,
     expenseId,
     router,
@@ -232,7 +297,7 @@ export const AddOrEditExpensePage: React.FC<{
     addExpenseMutation,
     apiUtils,
     group,
-    paidBy,
+                        paidBy,
     splitType,
     fileKey,
     isExpenseSettled,
@@ -242,7 +307,6 @@ export const AddOrEditExpensePage: React.FC<{
     cronExpression,
     multipleTransactions,
     setSingleTransaction,
-    setCardId,
     update,
   ]);
 
@@ -313,6 +377,25 @@ export const AddOrEditExpensePage: React.FC<{
   const onClearOriginalExpense = useCallback(() => {
     clearOriginalExpense();
   }, [clearOriginalExpense]);
+
+  const onCardPick = useCallback(
+    (nextCardId?: number | null) => {
+      const nextPaymentSource = cardsQuery.data?.find((card) => card.id === nextCardId);
+
+      setCardId(nextCardId);
+
+      if (
+        0n === amount &&
+        nextPaymentSource?.type === 'CASH' &&
+        nextPaymentSource.autoConvertToSettlement &&
+        isCurrencyCode(nextPaymentSource.defaultCurrency)
+      ) {
+        setCurrency(nextPaymentSource.defaultCurrency);
+        clearOriginalExpense();
+      }
+    },
+    [amount, cardsQuery.data, clearOriginalExpense, setCardId, setCurrency],
+  );
 
   const currencyConversionComponent = React.useMemo(() => {
     if (
@@ -393,7 +476,7 @@ export const AddOrEditExpensePage: React.FC<{
               rightIcon={currencyConversionComponent}
             />
           </div>
-          <CardSelector cardId={cardId} onCardPick={setCardId} />
+          <CardSelector cardId={cardId} onCardPick={onCardPick} />
           <OriginalExpenseDetails
             expenseDate={expenseDate}
             settlementAmount={(isNegative ? -1n : 1n) * amount}
@@ -424,7 +507,6 @@ export const AddOrEditExpensePage: React.FC<{
                       {generateSplitDescription(
                         splitType,
                         participants,
-                        splitShares,
                         paidBy,
                         currentUser,
                       )}

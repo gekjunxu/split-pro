@@ -81,6 +81,7 @@ model Card {
   defaultCurrency    String?
   settlementCurrency String?
   defaultRate        Float?
+  autoConvertToSettlement Boolean @default(false)
   startingBalance    BigInt?
   archivedAt DateTime?
   createdAt DateTime  @default(now())

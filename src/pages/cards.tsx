@@ -1,11 +1,4 @@
-import {
-  Banknote,
-  CreditCard,
-  PencilIcon,
-  PlusIcon,
-  RotateCcw,
-  Trash2,
-} from 'lucide-react';
+import { Banknote, CreditCard, PencilIcon, PlusIcon, RotateCcw, Trash2 } from 'lucide-react';
 import Head from 'next/head';
 import React, { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
@@ -22,6 +15,7 @@ import {
 import { Label } from '~/components/ui/label';
 import { Input } from '~/components/ui/input';
 import { NativeSelect, NativeSelectOption } from '~/components/ui/native-select';
+import { Switch } from '~/components/ui/switch';
 import { Textarea } from '~/components/ui/textarea';
 import { useTranslationWithUtils } from '~/hooks/useTranslationWithUtils';
 import { CURRENCIES, isCurrencyCode } from '~/lib/currency';
@@ -40,6 +34,7 @@ interface CardFormState {
   defaultCurrency: string;
   settlementCurrency: string;
   defaultRate: string;
+  autoConvertToSettlement: boolean;
   startingBalance: bigint | null;
   startingBalanceStr: string;
 }
@@ -53,6 +48,7 @@ const emptyCardForm: CardFormState = {
   defaultCurrency: 'USD',
   settlementCurrency: 'USD',
   defaultRate: '',
+  autoConvertToSettlement: false,
   startingBalance: null,
   startingBalanceStr: '',
 };
@@ -77,29 +73,33 @@ const CardsPage: NextPageWithUser = () => {
     setOpen(true);
   }, []);
 
-  const onEdit = useCallback((card: NonNullable<typeof cardsQuery.data>[number]) => {
-    setForm({
-      id: card.id,
-      name: card.name,
-      issuer: card.issuer ?? '',
-      network: card.network ?? '',
-      notes: card.notes ?? '',
-      type: card.type === 'CASH' ? 'CASH' : 'CARD',
-      defaultCurrency: card.defaultCurrency ?? 'USD',
-      settlementCurrency: card.settlementCurrency ?? 'USD',
-      defaultRate: card.defaultRate ? String(card.defaultRate) : '',
-      startingBalance: card.startingBalance ?? null,
-      startingBalanceStr:
-        card.startingBalance && isCurrencyCode(card.defaultCurrency ?? '')
-          ? getCurrencyHelpersCached(card.defaultCurrency ?? 'USD').toUIString(
-              card.startingBalance,
-              true,
-              true,
-            )
-          : '',
-    });
-    setOpen(true);
-  }, [getCurrencyHelpersCached]);
+  const onEdit = useCallback(
+    (card: NonNullable<typeof cardsQuery.data>[number]) => {
+      setForm({
+        id: card.id,
+        name: card.name,
+        issuer: card.issuer ?? '',
+        network: card.network ?? '',
+        notes: card.notes ?? '',
+        type: card.type === 'CASH' ? 'CASH' : 'CARD',
+        defaultCurrency: card.defaultCurrency ?? 'USD',
+        settlementCurrency: card.settlementCurrency ?? 'USD',
+        defaultRate: card.defaultRate ? String(card.defaultRate) : '',
+        autoConvertToSettlement: card.autoConvertToSettlement,
+        startingBalance: card.startingBalance ?? null,
+        startingBalanceStr:
+          card.startingBalance && isCurrencyCode(card.defaultCurrency ?? '')
+            ? getCurrencyHelpersCached(card.defaultCurrency ?? 'USD').toUIString(
+                card.startingBalance,
+                true,
+                true,
+              )
+            : '',
+      });
+      setOpen(true);
+    },
+    [getCurrencyHelpersCached],
+  );
 
   const onSave = useCallback(async () => {
     try {
@@ -169,14 +169,18 @@ const CardsPage: NextPageWithUser = () => {
       setForm((current) => ({
         ...current,
         startingBalanceStr: strValue ?? current.startingBalanceStr,
-        startingBalance:
-          bigIntValue !== undefined
-            ? bigIntValue
-            : current.startingBalance,
+        startingBalance: bigIntValue !== undefined ? bigIntValue : current.startingBalance,
       }));
     },
     [],
   );
+
+  const onAutoConvertToSettlementChange = useCallback((checked: boolean) => {
+    setForm((current) => ({
+      ...current,
+      autoConvertToSettlement: checked,
+    }));
+  }, []);
 
   useEffect(() => {
     if (!open) {
@@ -217,6 +221,7 @@ const CardsPage: NextPageWithUser = () => {
                             card.defaultRate
                               ? `${card.defaultRate} ${card.defaultCurrency}/${card.settlementCurrency}`
                               : null,
+                            card.autoConvertToSettlement ? t('cards.auto_convert_enabled') : null,
                           ]
                             .filter(Boolean)
                             .join(' / ')
@@ -311,6 +316,21 @@ const CardsPage: NextPageWithUser = () => {
                       onChange={updateForm('defaultRate')}
                       placeholder={t('cards.default_rate_placeholder')}
                       inputMode="decimal"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between gap-3 rounded-md border p-3">
+                    <div className="grid gap-1">
+                      <Label htmlFor="auto-convert-cash">
+                        {t('cards.auto_convert_to_settlement')}
+                      </Label>
+                      <p className="text-xs text-gray-500">
+                        {t('cards.auto_convert_to_settlement_help')}
+                      </p>
+                    </div>
+                    <Switch
+                      id="auto-convert-cash"
+                      checked={form.autoConvertToSettlement}
+                      onCheckedChange={onAutoConvertToSettlementChange}
                     />
                   </div>
                   <div className="grid gap-2">
