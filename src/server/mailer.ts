@@ -2,6 +2,7 @@ import { type User } from 'next-auth';
 import nodemailer, { type Transporter } from 'nodemailer';
 
 import { env } from '~/env';
+import { getAppUrlFromNextAuthUrl } from '~/utils/paths';
 
 import { sendToDiscord } from './service-notification';
 
@@ -61,7 +62,8 @@ export async function sendInviteEmail(email: string, name: string) {
     throw new Error('Sending invites is not enabled');
   }
 
-  const { host } = new URL(env.NEXTAUTH_URL);
+  const appUrl = getAppUrlFromNextAuthUrl(env.NEXTAUTH_URL);
+  const { host } = new URL(appUrl);
 
   if ('development' === env.NODE_ENV) {
     console.log('Sending invite email', email, name);
@@ -69,8 +71,8 @@ export async function sendInviteEmail(email: string, name: string) {
   }
 
   const subject = 'Invitation to SplitPro';
-  const text = `Hey,\n\nYou have been invited to SplitPro by ${name}. It's a completely open source free alternative to splitwise. You can sign in to SplitPro by clicking the below URL:\n${env.NEXTAUTH_URL}\n\nThanks,\nSplitPro Team`;
-  const html = `<p>Hey,</p> <p>You have been invited to SplitPro by ${name}. It's a completely open source free alternative to splitwise. You can sign in to SplitPro by clicking the below URL:</p><p><a href="${env.NEXTAUTH_URL}">Sign in to ${host}</a></p><br><p>Thanks,<br/>SplitPro Team</p>`;
+  const text = `Hey,\n\nYou have been invited to SplitPro by ${name}. It's a completely open source free alternative to splitwise. You can sign in to SplitPro by clicking the below URL:\n${appUrl}\n\nThanks,\nSplitPro Team`;
+  const html = `<p>Hey,</p> <p>You have been invited to SplitPro by ${name}. It's a completely open source free alternative to splitwise. You can sign in to SplitPro by clicking the below URL:</p><p><a href="${appUrl}">Sign in to ${host}</a></p><br><p>Thanks,<br/>SplitPro Team</p>`;
 
   await sendMail(email, subject, text, html);
 }

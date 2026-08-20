@@ -30,6 +30,8 @@ services:
     build:
       context: ../..
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_BASE_PATH: ${NEXT_PUBLIC_BASE_PATH:-}
     image: splitpro-local:phase2
     container_name: splitpro
     restart: always

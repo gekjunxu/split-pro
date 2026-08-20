@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { joinGroup } from '~/server/api/services/splitService';
 import { getServerAuthSession } from '~/server/auth';
 import type { NextPageWithUser } from '~/types';
+import { withBasePath } from '~/utils/paths';
 
 const Home: NextPageWithUser = () => <div />;
 
@@ -20,7 +21,9 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   if (!session) {
     return {
       redirect: {
-        destination: `/auth/signin?callbackUrl=${encodeURIComponent(context.resolvedUrl)}`,
+        destination: withBasePath(
+          `/auth/signin?callbackUrl=${encodeURIComponent(withBasePath(context.resolvedUrl))}`,
+        ),
         permanent: false,
       },
     };
@@ -28,7 +31,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     toast.warning('Could not find group');
     return {
       redirect: {
-        destination: '/groups',
+        destination: withBasePath('/groups'),
         permanent: false,
       },
     };
@@ -37,7 +40,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
       const { id } = await joinGroup(session.user.id, groupId);
       return {
         redirect: {
-          destination: `/groups/${id}`,
+          destination: withBasePath(`/groups/${id}`),
           permanent: false,
         },
       };
@@ -45,7 +48,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
       console.error(e);
       return {
         redirect: {
-          destination: '/groups',
+          destination: withBasePath('/groups'),
           permanent: false,
         },
       };

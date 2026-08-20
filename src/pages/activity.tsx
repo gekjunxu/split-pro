@@ -14,6 +14,7 @@ import { RefreshCcwDot } from 'lucide-react';
 import { Button } from '~/components/ui/button';
 import React from 'react';
 import { OriginalExpenseSummary } from '~/components/Expense/OriginalExpenseSummary';
+import { withBasePath } from '~/utils/paths';
 
 function getPaymentString(
   user: User,
@@ -69,7 +70,7 @@ const ActivityPage: NextPageWithUser = ({ user }) => {
     <>
       <Head>
         <title>{t('navigation.activity')}</title>
-        <link rel="icon" href="/favicon.ico" />
+        <link rel="icon" href={withBasePath('/favicon.ico')} />
       </Head>
       <MainLayout
         title={t('navigation.activity')}

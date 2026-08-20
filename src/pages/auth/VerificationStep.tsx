@@ -9,6 +9,7 @@ import { z } from 'zod';
 import { Button } from '~/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormMessage } from '~/components/ui/form';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '~/components/ui/input-otp';
+import { withBasePath } from '~/utils/paths';
 
 const otpSchema = (t: TFunction) =>
   z.object({
@@ -38,9 +39,11 @@ const VerificationStep: FC<VerificationStepProps> = ({ feedbackEmail, email, cal
       return;
     }
 
-    window.location.href = `/api/auth/callback/email?email=${encodeURIComponent(
-      email,
-    )}&token=${otpForm.getValues().otp}${callbackUrl ? `&callbackUrl=${callbackUrl}` : ''}`;
+    window.location.href = withBasePath(
+      `/api/auth/callback/email?email=${encodeURIComponent(
+        email,
+      )}&token=${otpForm.getValues().otp}${callbackUrl ? `&callbackUrl=${callbackUrl}` : ''}`,
+    );
   }, [email, otpForm, callbackUrl, t]);
 
   const feedbackEmailLink = useMemo(() => `mailto:${feedbackEmail}`, [feedbackEmail]);

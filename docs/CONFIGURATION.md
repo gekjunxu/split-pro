@@ -18,6 +18,16 @@ This document lists SplitPro environment variables and how they are used. The au
 - `NEXTAUTH_SECRET`: Secret used to sign tokens. Generate with `openssl rand -base64 32`.
 - `NEXTAUTH_URL`: Canonical app URL (used for callbacks and absolute URLs).
 - `NEXTAUTH_URL_INTERNAL`: Optional internal URL for server-side calls when the app cannot reach `NEXTAUTH_URL`.
+- `NEXT_PUBLIC_BASE_PATH`: Optional build-time path prefix, such as `/splitpro`, when hosting SplitPro below a reverse-proxy path.
+
+When `NEXT_PUBLIC_BASE_PATH` is set, use the full NextAuth API endpoint for `NEXTAUTH_URL`, for example:
+
+```bash
+NEXT_PUBLIC_BASE_PATH="/splitpro"
+NEXTAUTH_URL="https://example.com/splitpro/api/auth"
+```
+
+If you set `NEXTAUTH_URL_INTERNAL`, it should also point to the corresponding `/splitpro/api/auth` endpoint.
 
 At least one provider must be configured. SplitPro does not support username/password.
 

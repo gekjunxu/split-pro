@@ -1,6 +1,7 @@
 import { type GetServerSideProps } from 'next';
 
 import { env } from '~/env';
+import { getAppUrlFromNextAuthUrl } from '~/utils/paths';
 
 const getSitemapXml = (url: string) => `<?xml version="1.0" encoding="UTF-8"?>
 <urlset
@@ -42,7 +43,7 @@ const getSitemapXml = (url: string) => `<?xml version="1.0" encoding="UTF-8"?>
 
 export const getServerSideProps: GetServerSideProps = async ({ res }) => {
   // Generate the XML sitemap with the blog data
-  const sitemap = getSitemapXml(env.NEXTAUTH_URL);
+  const sitemap = getSitemapXml(getAppUrlFromNextAuthUrl(env.NEXTAUTH_URL));
 
   res.setHeader('Content-Type', 'text/xml');
   // Send the XML to the browser

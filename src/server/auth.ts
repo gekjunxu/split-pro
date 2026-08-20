@@ -11,8 +11,8 @@ import { env } from '~/env';
 import { db } from '~/server/db';
 
 import { sendSignUpEmail } from './mailer';
-import { getBaseUrl } from '~/utils/api';
 import type { OAuthConfig } from 'next-auth/providers/oauth';
+import { getAppUrlFromNextAuthUrl, withBasePath } from '~/utils/paths';
 
 /**
  * Module augmentation for `next-auth` types. Allows us to add custom properties to the `session`
@@ -131,7 +131,7 @@ export const authOptions: NextAuthOptions = {
         });
 
         if (!existingUser) {
-          return `${getBaseUrl()}/auth/signin?error=SignupDisabled`;
+          return `${getAppUrlFromNextAuthUrl(env.NEXTAUTH_URL)}/auth/signin?error=SignupDisabled`;
         }
       }
 
@@ -175,7 +175,7 @@ export const getServerAuthSessionForSSG = async (context: GetServerSidePropsCont
   if (!session?.user?.email) {
     return {
       redirect: {
-        destination: '/',
+        destination: withBasePath('/'),
         permanent: false,
       },
     };

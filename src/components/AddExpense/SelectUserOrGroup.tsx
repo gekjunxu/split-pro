@@ -9,6 +9,7 @@ import { z } from 'zod';
 
 import { useAddExpenseStore } from '~/store/addStore';
 import { api } from '~/utils/api';
+import { withBasePath } from '~/utils/paths';
 
 import { EntityAvatar } from '../ui/avatar';
 import { Button } from '../ui/button';
@@ -198,7 +199,12 @@ export const SelectUserOrGroup: React.FC<{
 
         {0 === filteredFriends?.length && 0 === filteredGroups?.length ? (
           <div className="mt-[30%] flex flex-col items-center justify-center gap-20 transition-discrete starting:opacity-0">
-            <Image alt="empty user image" src="/empty_img.svg" width={250} height={250} />
+            <Image
+              alt="empty user image"
+              src={withBasePath('/empty_img.svg')}
+              width={250}
+              height={250}
+            />
           </div>
         ) : null}
       </div>

@@ -15,6 +15,7 @@ import { LoadingSpinner } from '~/components/ui/spinner';
 import { type NextPageWithUser, type SplitwiseGroup, type SplitwiseUser } from '~/types';
 import { api } from '~/utils/api';
 import { withI18nStaticProps } from '~/utils/i18n/server';
+import { withBasePath } from '~/utils/paths';
 
 const ImportSpliwisePage: NextPageWithUser = () => {
   const { t } = useTranslation();
@@ -49,12 +50,12 @@ const ImportSpliwisePage: NextPageWithUser = () => {
 
       setUsersWithBalance(friendsWithOutStandingBalance);
       setSelectedUsers(
-        friendsWithOutStandingBalance.reduce(
+        friendsWithOutStandingBalance.reduce< Record<string, boolean>>(
           (acc, user) => {
             acc[user.id] = true;
             return acc;
           },
-          {} as Record<string, boolean>,
+          {},
         ),
       );
 
@@ -64,12 +65,12 @@ const ImportSpliwisePage: NextPageWithUser = () => {
 
       setGroups(_groups);
       setSelectedGroups(
-        _groups.reduce(
+        _groups.reduce< Record<string, boolean>>(
           (acc, group) => {
             acc[group.id] = true;
             return acc;
           },
-          {} as Record<string, boolean>,
+          {},
         ),
       );
     } catch (e) {
@@ -99,7 +100,7 @@ const ImportSpliwisePage: NextPageWithUser = () => {
     <>
       <Head>
         <title>{t('account.import_from_splitwise')}</title>
-        <link rel="icon" href="/favicon.ico" />
+        <link rel="icon" href={withBasePath('/favicon.ico')} />
       </Head>
       <MainLayout hideAppBar>
         <div className="flex items-center justify-between">

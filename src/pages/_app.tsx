@@ -16,6 +16,7 @@ import { useAddExpenseStore } from '~/store/addStore';
 import { useAppStore } from '~/store/appStore';
 import { type NextPageWithUser } from '~/types';
 import { api } from '~/utils/api';
+import { appBasePath, withBasePath } from '~/utils/paths';
 
 import 'react-easy-crop/react-easy-crop.css';
 import '~/styles/globals.css';
@@ -39,50 +40,63 @@ const MyApp: AppType<{ session: Session | null }> = ({
 
   // TODO: Migrate to APP router and get it from env var
   const baseUrl = global?.window?.location?.origin;
+  const appUrl = baseUrl ? `${baseUrl}${appBasePath}` : undefined;
+  const assetUrl = (path: string) =>
+    baseUrl ? `${baseUrl}${withBasePath(path)}` : withBasePath(path);
 
   return (
     <main className={clsx(poppins.className, 'h-full')}>
       <Head>
         <title>{t('meta.title')}</title>
-        <link rel="icon" href="/favicon.ico" />
+        <link rel="icon" href={withBasePath('/favicon.ico')} />
         <meta name="application-name" content={t('meta.application_name')} />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-title" content={t('meta.application_name')} />
         <meta name="description" content={t('meta.description')} />
         <meta name="format-detection" content="telephone=no" />
         <meta name="mobile-web-app-capable" content="yes" />
-        <meta name="msapplication-config" content="/icons/browserconfig.xml" />
+        <meta name="msapplication-config" content={withBasePath('/icons/browserconfig.xml')} />
         <meta name="msapplication-TileColor" content="#2B5797" />
         <meta name="msapplication-tap-highlight" content="no" />
 
         <meta name="theme-color" content="#030711" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
 
-        <link rel="apple-touch-icon" href="/icons/ios/144.png" />
-        <link rel="apple-touch-icon" sizes="152x152" href="/icons/ios/152.png" />
-        <link rel="apple-touch-icon" sizes="180x180" href="/icons/ios/180.png" />
-        <link rel="apple-touch-icon" sizes="167x167" href="/icons/ios/167.png" />
+        <link rel="apple-touch-icon" href={withBasePath('/icons/ios/144.png')} />
+        <link rel="apple-touch-icon" sizes="152x152" href={withBasePath('/icons/ios/152.png')} />
+        <link rel="apple-touch-icon" sizes="180x180" href={withBasePath('/icons/ios/180.png')} />
+        <link rel="apple-touch-icon" sizes="167x167" href={withBasePath('/icons/ios/167.png')} />
 
-        <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32x32.png" />
-        <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16x16.png" />
-        <link rel="manifest" href="/manifest.json" />
-        <link rel="mask-icon" href="/icons/safari-pinned-tab.svg" color="#5bbad5" />
-        <link rel="shortcut icon" href="/favicon.ico" />
+        <link
+          rel="icon"
+          type="image/png"
+          sizes="32x32"
+          href={withBasePath('/icons/favicon-32x32.png')}
+        />
+        <link
+          rel="icon"
+          type="image/png"
+          sizes="16x16"
+          href={withBasePath('/icons/favicon-16x16.png')}
+        />
+        <link rel="manifest" href={withBasePath('/manifest.json')} />
+        <link rel="mask-icon" href={withBasePath('/icons/safari-pinned-tab.svg')} color="#5bbad5" />
+        <link rel="shortcut icon" href={withBasePath('/favicon.ico')} />
 
         <meta name="twitter:card" content="summary" />
-        <meta name="twitter:url" content={baseUrl} />
+        <meta name="twitter:url" content={appUrl} />
         <meta name="twitter:title" content={t('meta.application_name')} />
         <meta name="twitter:description" content={t('meta.description')} />
-        <meta name="twitter:image" content={`${baseUrl}/og_banner.png`} />
+        <meta name="twitter:image" content={assetUrl('/og_banner.png')} />
         <meta name="twitter:creator" content="@KM_Koushik_" />
         <meta property="og:type" content="website" />
         <meta property="og:title" content={t('meta.application_name')} />
         <meta property="og:description" content={t('meta.description')} />
         <meta property="og:site_name" content={t('meta.application_name')} />
-        <meta property="og:url" content={baseUrl} />
-        <meta property="og:image" content={`${baseUrl}/og_banner.png`} />
+        <meta property="og:url" content={appUrl} />
+        <meta property="og:image" content={assetUrl('/og_banner.png')} />
       </Head>
-      <SessionProvider session={session}>
+      <SessionProvider session={session} basePath={withBasePath('/api/auth')}>
         <CurrencyHelpersProvider>
           <ThemeProvider attribute="class" defaultTheme="dark">
             <Toaster toastOptions={toastOptions} />

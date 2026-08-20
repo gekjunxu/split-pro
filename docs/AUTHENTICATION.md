@@ -24,6 +24,12 @@ For generic OIDC providers, configure the callback URL as:
 https://<your-domain>/api/auth/callback/oidc
 ```
 
+When SplitPro is hosted under a path, include that path in every callback URL, for example:
+
+```
+https://<your-domain>/splitpro/api/auth/callback/oidc
+```
+
 ## Provider setup notes
 
 ### Email (magic link)
@@ -38,6 +44,12 @@ https://<your-domain>/api/auth/callback/oidc
 
 ```
 https://<your-domain>/api/auth/callback/google
+```
+
+For a `/splitpro` deployment, use:
+
+```
+https://<your-domain>/splitpro/api/auth/callback/google
 ```
 
 ### OIDC (Authentik/Keycloak/custom)
