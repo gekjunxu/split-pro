@@ -125,6 +125,17 @@ export const authOptions: NextAuthOptions = {
       },
     }),
     async signIn({ user, email }) {
+      const allowedEmails = new Set(
+        (env.AUTH_ALLOWED_EMAILS ?? '')
+          .split(',')
+          .map((allowedEmail) => allowedEmail.trim().toLowerCase())
+          .filter(Boolean),
+      );
+
+      if (0 < allowedEmails.size && (!user.email || !allowedEmails.has(user.email.toLowerCase()))) {
+        return false;
+      }
+
       if (email?.verificationRequest && env.DISABLE_EMAIL_SIGNUP) {
         const existingUser = await db.user.findUnique({
           where: { email: user.email },
