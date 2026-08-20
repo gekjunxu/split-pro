@@ -41,10 +41,32 @@ jobs:
           ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
 
       - name: Deploy to prodesk
+        env:
+          REPOSITORY_URL: ${{ github.server_url }}/${{ github.repository }}.git
         run: |
           ssh -o BatchMode=yes "$DEPLOY_USER@$DEPLOY_HOST" \
-            "cd '$DEPLOY_PATH' && \
-            git fetch origin '$DEPLOY_BRANCH' && \
-            git checkout '$DEPLOY_BRANCH' && \
-            git pull --ff-only origin '$DEPLOY_BRANCH' && \
-            docker compose -f docker/prod/compose.yml up -d --build"
+            "DEPLOY_PATH='$DEPLOY_PATH' \
+            DEPLOY_BRANCH='$DEPLOY_BRANCH' \
+            REPOSITORY_URL='$REPOSITORY_URL' \
+            sh -se" <<'EOF'
+              if [ ! -d "$DEPLOY_PATH/.git" ]; then
+                if [ -e "$DEPLOY_PATH" ]; then
+                  echo "Deployment path exists but is not a Git checkout: $DEPLOY_PATH" >&2
+                  exit 1
+                fi
+
+                mkdir -p "$(dirname "$DEPLOY_PATH")"
+                git clone --branch "$DEPLOY_BRANCH" --single-branch "$REPOSITORY_URL" "$DEPLOY_PATH"
+              fi
+
+              if [ ! -f "$DEPLOY_PATH/.env" ]; then
+                echo "Missing $DEPLOY_PATH/.env; create it from .env.example on prodesk before deploying." >&2
+                exit 1
+              fi
+
+              cd "$DEPLOY_PATH"
+              git fetch origin "$DEPLOY_BRANCH"
+              git checkout "$DEPLOY_BRANCH"
+              git pull --ff-only origin "$DEPLOY_BRANCH"
+              docker compose -f docker/prod/compose.yml up -d --build
+          EOF
