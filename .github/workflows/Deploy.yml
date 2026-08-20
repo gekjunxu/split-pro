@@ -12,21 +12,39 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: read
+
+    env:
+      DEPLOY_HOST: prodesk
+      DEPLOY_USER: junxu
+      DEPLOY_PATH: /home/junxu/split-pro
+      DEPLOY_BRANCH: ${{ github.ref_name }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Add SSH key
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.DROPLET_SSH_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H "${{ secrets.DROPLET_HOST }}" >> ~/.ssh/known_hosts
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v4
+        with:
+          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
+          ping: prodesk
 
-      - name: Deploy to droplet
+      - name: Add SSH key
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
         run: |
-          ssh "${{ secrets.DROPLET_USER }}@${{ secrets.DROPLET_HOST }}" << 'EOF'
-            cd /root/split-pro
-            git pull
-            docker compose -f docker/prod/compose.yml up -d --build
-          EOF
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+
+      - name: Deploy to prodesk
+        run: |
+          ssh -o BatchMode=yes "$DEPLOY_USER@$DEPLOY_HOST" \
+            "cd '$DEPLOY_PATH' && \
+            git fetch origin '$DEPLOY_BRANCH' && \
+            git checkout '$DEPLOY_BRANCH' && \
+            git pull --ff-only origin '$DEPLOY_BRANCH' && \
+            docker compose -f docker/prod/compose.yml up -d --build"
