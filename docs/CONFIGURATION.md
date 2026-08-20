@@ -26,6 +26,7 @@ At least one provider must be configured. SplitPro does not support username/pas
 - `DEFAULT_HOMEPAGE`: Sets the landing page route, e.g. `/home` or `/balances`.
 - `ENABLE_SENDING_INVITES`: Enable email invites (requires SMTP config).
 - `DISABLE_EMAIL_SIGNUP`: Disable email magic-link signup for new users.
+- `AUTH_ALLOWED_EMAILS`: Optional comma-separated email allowlist applied to all authentication providers.
 - `UPLOAD_MAX_FILE_SIZE_MB`: Maximum receipt upload size in MB. Used by both client-side pre-check and server-side upload limit. This is also the max size target for image compression, so increase it if you see bad resolution/quality. Default: `10`.
 
 ## Optional variables
@@ -71,6 +72,8 @@ Used for magic-link login and invites.
 
 - `GOOGLE_CLIENT_ID`
 - `GOOGLE_CLIENT_SECRET`
+
+For a public self-hosted instance, set `AUTH_ALLOWED_EMAILS` to the exact Google email addresses that should be allowed to sign in.
 
 #### Authentik
 

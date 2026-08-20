@@ -57,5 +57,6 @@ To prevent new user signups and keep a closed instance:
 
 - Set `DISABLE_EMAIL_SIGNUP=true` to prevent email signups.
 - Set `ENABLE_SENDING_INVITES=false` to block invite emails.
+- Set `AUTH_ALLOWED_EMAILS` to a comma-separated list of trusted email addresses when exposing the instance publicly.
 
-You can still allow access via trusted OAuth or OIDC providers.
+The allowlist is checked for every configured authentication provider. You can still allow access via trusted OAuth or OIDC providers without making the whole instance open to new accounts.
