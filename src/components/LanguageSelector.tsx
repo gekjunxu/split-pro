@@ -5,6 +5,7 @@ import { Globe } from 'lucide-react';
 import { Button } from '~/components/ui/button';
 import { getSupportedLanguages } from '~/utils/i18n/client';
 import { cn } from '~/lib/utils';
+import { withBasePath } from '~/utils/paths';
 
 interface LanguageSelectorProps {
   className?: string;
@@ -23,7 +24,7 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({ className = 
   const handleLanguageChange = useCallback(
     async (languageCode: string) => {
       try {
-        await fetch(`/api/locale?locale=${languageCode}`);
+        await fetch(withBasePath(`/api/locale?locale=${languageCode}`));
         await router.push(router.asPath, router.asPath, {
           locale: languageCode,
           scroll: false,

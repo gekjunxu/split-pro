@@ -1,9 +1,10 @@
 import { AppDrawer } from '../ui/drawer';
+import { withBasePath } from '~/utils/paths';
 
 export const Receipt = ({ fileKey }: { fileKey: string }) => {
   const thumbKey = fileKey.replace('.webp', '-thumb.webp');
-  const thumbUrl = `/api/files/${thumbKey}`;
-  const fullUrl = `/api/files/${fileKey}`;
+  const thumbUrl = withBasePath(`/api/files/${thumbKey}`);
+  const fullUrl = withBasePath(`/api/files/${fileKey}`);
 
   return (
     <AppDrawer

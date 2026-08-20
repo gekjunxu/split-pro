@@ -10,6 +10,7 @@ import { useTranslationWithUtils } from '~/hooks/useTranslationWithUtils';
 import { cn } from '~/lib/utils';
 import type { ExpenseRouter } from '~/server/api/routers/expense';
 import { api } from '~/utils/api';
+import { withBasePath } from '~/utils/paths';
 import { Separator } from '../ui/separator';
 import { OriginalExpenseSummary } from './OriginalExpenseSummary';
 
@@ -207,6 +208,12 @@ const CurrencyConversion: ExpenseComponent = ({ e, userId }) => {
 
 const NoExpenses = () => (
   <div className="mt-20 flex flex-col items-center justify-center">
-    <Image src="/add_expense.svg" alt="Empty" width={200} height={200} className="mb-4" />
+    <Image
+      src={withBasePath('/add_expense.svg')}
+      alt="Empty"
+      width={200}
+      height={200}
+      className="mb-4"
+    />
   </div>
 );

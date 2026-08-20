@@ -6,6 +6,7 @@ import NordigenClient, { type Transaction } from 'nordigen-node';
 import { env } from '~/env';
 import { db } from '~/server/db';
 import type { TransactionOutput, TransactionOutputItem } from '~/types/bank.types';
+import { getAppUrlFromNextAuthUrl } from '~/utils/paths';
 
 abstract class AbstractBankProvider {
   abstract getTransactions(userId: number, token?: string): Promise<TransactionOutput | undefined>;
@@ -142,7 +143,7 @@ export class GoCardlessService extends AbstractBankProvider {
     await this.client.generateToken();
 
     const init = await this.client.initSession({
-      redirectUrl: env.NEXTAUTH_URL,
+      redirectUrl: getAppUrlFromNextAuthUrl(env.NEXTAUTH_URL),
       institutionId: institutionId,
       referenceId: this.generateRandomId(),
       user_language: preferredLanguage?.toUpperCase() ?? GOCARDLESS_CONSTANTS.DEFAULT_LANGUAGE,

@@ -11,9 +11,13 @@ import withSerwistInit from '@serwist/next';
  */
 await jiti.import('./src/env');
 
+const configuredBasePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim();
+const basePath = configuredBasePath ? `/${configuredBasePath.replace(/^\/+|\/+$/g, '')}` : '';
+
 /** @type {import("next").NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  basePath,
   output: process.env.DOCKER_OUTPUT ? 'standalone' : undefined,
   transpilePackages: ['@t3-oss/env-nextjs', '@t3-oss/env-core'],
   /**

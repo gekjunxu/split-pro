@@ -1,11 +1,10 @@
 import { type PushMessage } from '~/types';
 import { defaultCache } from '@serwist/next/worker';
-import type { PrecacheEntry, SerwistGlobalConfig } from 'serwist';
-import { Serwist } from 'serwist';
+import { type PrecacheEntry, Serwist, type SerwistGlobalConfig } from 'serwist';
 
 // This declares the value of `injectionPoint` to TypeScript.
 // `injectionPoint` is the string that will be replaced by the
-// actual precache manifest. By default, this string is set to
+// Actual precache manifest. By default, this string is set to
 // `"self.__SW_MANIFEST"`.
 declare global {
   interface WorkerGlobalScope extends SerwistGlobalConfig {
@@ -23,12 +22,18 @@ const serwist = new Serwist({
   runtimeCaching: defaultCache,
 });
 
+const serviceWorkerBasePath = self.location.pathname.replace(/\/sw\.js$/, '');
+const withBasePath = (path: string) =>
+  path.startsWith('http://') || path.startsWith('https://')
+    ? path
+    : `${serviceWorkerBasePath}${path}`;
+
 self.addEventListener('push', function (event) {
   const { title, message, data } = JSON.parse(event?.data?.text() ?? '{}') as PushMessage;
   event.waitUntil(
     self.registration.showNotification(title, {
       body: message,
-      icon: '/icons/android-chrome-192x192.png',
+      icon: withBasePath('/icons/android-chrome-192x192.png'),
       data,
     }),
   );
@@ -41,7 +46,7 @@ self.addEventListener('notificationclick', function (event) {
       const clientList = await self.clients.matchAll({ type: 'window' });
 
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      const url = (event.notification.data?.url as string) ?? '/';
+      const url = withBasePath((event.notification.data?.url as string) ?? '/');
 
       const matchingClient = clientList.find((client) => client.focused) ?? clientList[0];
 

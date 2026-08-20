@@ -1,6 +1,6 @@
 import imageCompression from 'browser-image-compression';
 
-import { env } from '~/env';
+import { withBasePath } from '~/utils/paths';
 
 const compressImage = async (file: File, maxSizeMB: number) => {
   if (!file.type.startsWith('image/')) {
@@ -27,7 +27,7 @@ export const uploadImage = async (file: File): Promise<string> => {
   const formData = new FormData();
   formData.append('file', file);
 
-  const response = await fetch('/api/upload', {
+  const response = await fetch(withBasePath('/api/upload'), {
     method: 'POST',
     body: formData,
   });
@@ -45,9 +45,9 @@ export const toImageSrc = (value?: string | null) => {
     return undefined;
   }
 
-  if (value.startsWith('http://') || value.startsWith('https://') || value.startsWith('/')) {
+  if (value.startsWith('http://') || value.startsWith('https://')) {
     return value;
   }
 
-  return `/api/files/${value}`;
+  return withBasePath(value.startsWith('/') ? value : `/api/files/${value}`);
 };

@@ -15,7 +15,6 @@ import {
   Users,
 } from 'lucide-react';
 import { type GetServerSideProps } from 'next';
-import Head from 'next/head';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useTranslation } from 'next-i18next';
@@ -24,6 +23,7 @@ import { Button } from '~/components/ui/button';
 
 import { LanguageSelector } from '~/components/LanguageSelector';
 import { customServerSideTranslations } from '~/utils/i18n/server';
+import { withBasePath } from '~/utils/paths';
 import { SiGithub } from '@icons-pack/react-simple-icons';
 
 const FeatureRow = ({ children }: { children: React.ReactNode }) => (
@@ -258,7 +258,7 @@ export default function Home() {
 const MobileScreenShot = () => (
   <BackgroundGradient>
     <Image
-      src="/hero.webp"
+      src={withBasePath('/hero.webp')}
       className="bg-background rounded-[22px] border"
       width={300}
       height={550}
