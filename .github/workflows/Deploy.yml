@@ -68,5 +68,8 @@ jobs:
               git fetch origin "$DEPLOY_BRANCH"
               git checkout "$DEPLOY_BRANCH"
               git pull --ff-only origin "$DEPLOY_BRANCH"
-              docker compose -f docker/prod/compose.yml up -d --build
+              if [ ! -e docker/prod/.env ] && [ ! -L docker/prod/.env ]; then
+                ln -s ../../.env docker/prod/.env
+              fi
+              docker compose --env-file .env -f docker/prod/compose.yml up -d --build
           EOF
