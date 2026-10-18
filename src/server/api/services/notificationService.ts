@@ -5,6 +5,7 @@ import { type PushMessage } from '~/types';
 
 import { db } from '~/server/db';
 import { pushNotification } from '~/server/notification';
+import { env } from '~/env';
 import { getCurrencyHelpers } from '~/utils/numbers';
 
 export const getSubscriptionEndpoint = (subscription: string) => {
@@ -38,7 +39,7 @@ const isPermanentPushFailure = (statusCode: number | undefined) =>
   404 === statusCode || 410 === statusCode;
 
 export const sendPushNotificationToUsers = async (userIds: number[], pushData: PushMessage) => {
-  if (0 === userIds.length) {
+  if (env.DISABLE_PUSH_NOTIFICATIONS || 0 === userIds.length) {
     return { sentCount: 0 };
   }
 

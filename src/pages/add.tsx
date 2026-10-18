@@ -229,7 +229,7 @@ const AddPage: NextPageWithUser<{
       expenseQuery.data.splitType,
     );
     const savedSplitShares = deserializeSplitShares(
-      (expenseQuery.data as typeof expenseQuery.data & { splitShares?: unknown }).splitShares,
+      expenseQuery.data.splitShares,
       expenseQuery.data.splitType,
     );
     if (savedSplitShares) {

@@ -17,6 +17,7 @@ await jiti.import('./src/env');
 
 /** @type {import("next").NextConfig} */
 const nextConfig = {
+  basePath: process.env.NEXT_PUBLIC_APP_BASE_PATH || undefined,
   reactStrictMode: true,
   reactCompiler: true,
   output: parseEnvBoolean(process.env.DOCKER_OUTPUT) ? 'standalone' : undefined,

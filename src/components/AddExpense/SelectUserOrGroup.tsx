@@ -10,6 +10,7 @@ import { z } from 'zod';
 
 import { useAddExpenseStore } from '~/store/addStore';
 import { api } from '~/utils/api';
+import { withAppBasePath } from '~/utils/appBasePath';
 import { deserializeDefaultSplit } from '~/lib/defaultSplit';
 import { getInviteErrorToastKey, isInviteEmailSendFailed } from '~/lib/error/invite';
 
@@ -252,7 +253,7 @@ export const SelectUserOrGroup: React.FC<{
           <div className="mt-[30%] flex flex-col items-center justify-center gap-20 transition-discrete starting:opacity-0">
             <Image
               alt={t('expense_details.add_expense_details.select_user_or_group.empty_image_alt')}
-              src="/empty_img.svg"
+              src={withAppBasePath('/empty_img.svg')}
               width={250}
               height={250}
             />

@@ -10,6 +10,7 @@ import { type inferRouterInputs, type inferRouterOutputs } from '@trpc/server';
 import superjson from 'superjson';
 
 import { type AppRouter } from '~/server/api/root';
+import { withAppBasePath } from '~/utils/appBasePath';
 
 export const getBaseUrl = () => {
   if ('undefined' !== typeof window) {
@@ -37,7 +38,7 @@ export const api = createTRPCNext<AppRouter>({
             ('down' === opts.direction && opts.result instanceof Error),
         }),
         httpBatchLink({
-          url: `${getBaseUrl()}/api/trpc`,
+          url: `${getBaseUrl()}${withAppBasePath('/api/trpc')}`,
           transformer: superjson,
         }),
       ],

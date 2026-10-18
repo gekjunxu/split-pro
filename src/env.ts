@@ -47,6 +47,7 @@ export const env = createEnv({
     EMAIL_SERVER_USER: z.string().optional(),
     EMAIL_SERVER_PASSWORD: z.string().optional(),
     EMAIL_TLS_REJECT_UNAUTHORIZED: z.boolean().default(true),
+    DISABLE_PUSH_NOTIFICATIONS: z.boolean().default(false),
     GOCARDLESS_COUNTRY: z.string().optional(),
     GOCARDLESS_SECRET_ID: z.string().optional(),
     GOCARDLESS_SECRET_KEY: z.string().optional(),
@@ -89,6 +90,7 @@ export const env = createEnv({
    * `NEXT_PUBLIC_`. Note that these are only evaluated at build time!
    */
   client: {
+    NEXT_PUBLIC_APP_BASE_PATH: z.string().default(''),
     NEXT_PUBLIC_APP_VERSION: z.string().optional(),
     NEXT_PUBLIC_GIT_SHA: z.string().optional(),
   },
@@ -118,6 +120,7 @@ export const env = createEnv({
     EMAIL_SERVER_USER: process.env.EMAIL_SERVER_USER,
     EMAIL_SERVER_PASSWORD: process.env.EMAIL_SERVER_PASSWORD,
     EMAIL_TLS_REJECT_UNAUTHORIZED: parseEnvBoolean(process.env.EMAIL_TLS_REJECT_UNAUTHORIZED, true),
+    DISABLE_PUSH_NOTIFICATIONS: parseEnvBoolean(process.env.DISABLE_PUSH_NOTIFICATIONS),
     GOCARDLESS_COUNTRY: process.env.GOCARDLESS_COUNTRY,
     GOCARDLESS_SECRET_ID: process.env.GOCARDLESS_SECRET_ID,
     GOCARDLESS_SECRET_KEY: process.env.GOCARDLESS_SECRET_KEY,
@@ -154,6 +157,7 @@ export const env = createEnv({
     UPLOAD_MAX_FILE_SIZE_MB: process.env.UPLOAD_MAX_FILE_SIZE_MB
       ? Number(process.env.UPLOAD_MAX_FILE_SIZE_MB)
       : 10,
+    NEXT_PUBLIC_APP_BASE_PATH: process.env.NEXT_PUBLIC_APP_BASE_PATH,
     NEXT_PUBLIC_APP_VERSION: process.env.NEXT_PUBLIC_APP_VERSION,
     NEXT_PUBLIC_GIT_SHA: process.env.NEXT_PUBLIC_GIT_SHA,
   },

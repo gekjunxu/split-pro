@@ -16,6 +16,7 @@ import { type NextPageWithUser, type SplitwiseGroup, type SplitwiseUser } from '
 import { api } from '~/utils/api';
 import { withI18nStaticProps } from '~/utils/i18n/server';
 import { parseSplitwiseImport } from '~/utils/splitwiseImport';
+import { withAppBasePath } from '~/utils/appBasePath';
 
 const ImportSpliwisePage: NextPageWithUser = () => {
   const { t } = useTranslation();
@@ -108,7 +109,7 @@ const ImportSpliwisePage: NextPageWithUser = () => {
     <>
       <Head>
         <title>{t('account.import_from_splitwise')}</title>
-        <link rel="icon" href="/favicon.ico" />
+        <link rel="icon" href={withAppBasePath('/favicon.ico')} />
       </Head>
       <MainLayout hideAppBar>
         <div className="flex items-center justify-between">

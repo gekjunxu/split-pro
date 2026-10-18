@@ -1,11 +1,9 @@
-import { calculateCardAnalytics, type CardAnalyticsExpense } from '~/lib/cardAnalytics';
+import { type CardAnalyticsExpense, calculateCardAnalytics } from '~/lib/cardAnalytics';
 
 const trust = { id: 1, name: 'Trust Cashback' };
 const youTrip = { id: 2, name: 'YouTrip' };
 
-const expense = (
-  overrides: Partial<CardAnalyticsExpense> = {},
-): CardAnalyticsExpense => ({
+const expense = (overrides: Partial<CardAnalyticsExpense> = {}): CardAnalyticsExpense => ({
   amount: 546n,
   originalAmount: 6400n,
   originalCurrency: 'KRW',

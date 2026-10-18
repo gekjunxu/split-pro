@@ -1,18 +1,16 @@
 import {
+  type TravelExpenseCsvExpense,
   buildPaymentSourceAnalyticsCsv,
   buildTravelExpensesCsv,
   createCsvFileName,
   moneyToCsvAmount,
   toCsv,
-  type TravelExpenseCsvExpense,
 } from '~/lib/csvExport';
 
 const john = { id: 1, name: 'John', email: 'john@example.com' };
 const jane = { id: 2, name: 'Jane', email: 'jane@example.com' };
 
-const expense = (
-  overrides: Partial<TravelExpenseCsvExpense> = {},
-): TravelExpenseCsvExpense => ({
+const expense = (overrides: Partial<TravelExpenseCsvExpense> = {}): TravelExpenseCsvExpense => ({
   id: 'expense-1',
   expenseDate: new Date('2026-05-12T08:00:00.000Z'),
   name: 'Ichiran Ramen',
@@ -38,9 +36,7 @@ describe('csvExport', () => {
       ['Ichiran, Ramen', 'Paid "cash"\nReceipt kept'],
     ]);
 
-    expect(csv).toBe(
-      '"Description","Notes"\r\n"Ichiran, Ramen","Paid ""cash""\nReceipt kept"',
-    );
+    expect(csv).toBe('"Description","Notes"\r\n"Ichiran, Ramen","Paid ""cash""\nReceipt kept"');
   });
 
   it('formats minor-unit money values as plain decimal spreadsheet values', () => {

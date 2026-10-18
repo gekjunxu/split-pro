@@ -1,4 +1,4 @@
-import { SplitType } from '@prisma/client';
+import type { SplitType } from '@prisma/client';
 
 import type { SplitShares } from '~/store/addStore';
 

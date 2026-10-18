@@ -11,6 +11,7 @@ import { useTranslationWithUtils } from '~/hooks/useTranslationWithUtils';
 import { cn } from '~/lib/utils';
 import type { ExpenseRouter } from '~/server/api/routers/expense';
 import { api } from '~/utils/api';
+import { withAppBasePath } from '~/utils/appBasePath';
 import { Separator } from '../ui/separator';
 import { OriginalExpenseSummary } from './OriginalExpenseSummary';
 
@@ -218,7 +219,7 @@ const NoExpenses = () => {
   return (
     <div className="mt-20 flex flex-col items-center justify-center">
       <Image
-        src="/add_expense.svg"
+        src={withAppBasePath('/add_expense.svg')}
         alt={t('expense_details.empty_state_image_alt')}
         width={200}
         height={200}

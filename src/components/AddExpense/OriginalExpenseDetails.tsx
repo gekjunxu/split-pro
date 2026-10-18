@@ -84,6 +84,7 @@ export const OriginalExpenseDetails: React.FC<{
     },
   );
 
+  // oxlint-disable react/set-state-in-effect -- Keep local edit fields synchronized with changed expense and payment-source props.
   useEffect(() => {
     const sourceCurrency =
       !originalCurrency &&
@@ -128,7 +129,9 @@ export const OriginalExpenseDetails: React.FC<{
     settlementCurrency,
     selectedPaymentSource,
   ]);
+  // oxlint-enable react/set-state-in-effect
 
+  // oxlint-disable react/set-state-in-effect -- Apply an asynchronously fetched rate to the form while auto mode is active.
   useEffect(() => {
     if (
       localOriginalCurrency === settlementCurrency ||
@@ -149,6 +152,7 @@ export const OriginalExpenseDetails: React.FC<{
     rateQuery.data?.rate,
     settlementCurrency,
   ]);
+  // oxlint-enable react/set-state-in-effect
 
   const settlementPreviewAmount = useMemo(() => {
     if ('statement' === rateMode) {

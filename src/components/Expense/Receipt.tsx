@@ -1,12 +1,13 @@
 import { useTranslation } from 'next-i18next';
 
 import { AppDrawer } from '../ui/drawer';
+import { withAppBasePath } from '~/utils/appBasePath';
 
 export const Receipt = ({ fileKey }: { fileKey: string }) => {
   const { t } = useTranslation();
   const thumbKey = fileKey.replace('.webp', '-thumb.webp');
-  const thumbUrl = `/api/files/${thumbKey}`;
-  const fullUrl = `/api/files/${fileKey}`;
+  const thumbUrl = withAppBasePath(`/api/files/${thumbKey}`);
+  const fullUrl = withAppBasePath(`/api/files/${fileKey}`);
 
   return (
     <AppDrawer

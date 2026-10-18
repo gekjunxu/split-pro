@@ -1,7 +1,7 @@
 import { SplitType } from '@prisma/client';
 
 import { deserializeSplitShares, serializeSplitShares } from '~/lib/splitShares';
-import { initSplitShares, type SplitShares } from '~/store/addStore';
+import { type SplitShares, initSplitShares } from '~/store/addStore';
 
 describe('split share persistence', () => {
   it('serializes and restores share split values as bigint inputs', () => {

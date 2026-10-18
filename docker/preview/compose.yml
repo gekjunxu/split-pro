@@ -1,0 +1,84 @@
+name: split-pro-preview
+
+services:
+  postgres:
+    image: ossapps/postgres:17.7-trixie
+    container_name: splitpro-preview-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in docker/preview/.env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in docker/preview/.env}
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in docker/preview/.env}
+    command: >
+      postgres
+      -c shared_preload_libraries=pg_cron
+      -c cron.database_name=${POSTGRES_DB}
+      -c cron.launch_active_jobs=${CRON_LAUNCH_ACTIVE_JOBS:-on}
+      -c cron.timezone=UTC
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - database:/var/lib/postgresql/data
+
+  app:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+      args:
+        APP_VERSION: upstream-preview
+        GIT_SHA: ${GIT_SHA:-}
+        NEXT_PUBLIC_APP_BASE_PATH: /splitprointegration
+    image: splitpro-preview:local
+    container_name: splitpro-preview-app
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      PORT: '3000'
+      HOSTNAME: 0.0.0.0
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      NEXT_PUBLIC_APP_BASE_PATH: /splitprointegration
+      NEXTAUTH_URL: https://prodesk.tail960ba6.ts.net/splitprointegration/api/auth
+      NEXTAUTH_URL_INTERNAL: http://splitpro-preview-app:3000/splitprointegration/api/auth
+      ENABLE_SENDING_INVITES: 'false'
+      DISABLE_EMAIL_SIGNUP: 'true'
+      INVITE_ONLY: 'true'
+      DISABLE_PUSH_NOTIFICATIONS: 'true'
+      WEB_PUSH_EMAIL: ''
+      WEB_PUSH_PRIVATE_KEY: ''
+      WEB_PUSH_PUBLIC_KEY: ''
+      EMAIL_SERVER_HOST: ''
+      EMAIL_SERVER_PORT: ''
+      EMAIL_SERVER_USER: ''
+      EMAIL_SERVER_PASSWORD: ''
+      FROM_EMAIL: ''
+      FEEDBACK_EMAIL: ''
+      DISCORD_WEBHOOK_URL: ''
+      GOCARDLESS_SECRET_ID: ''
+      GOCARDLESS_SECRET_KEY: ''
+      PLAID_CLIENT_ID: ''
+      PLAID_SECRET: ''
+      CLEAR_CACHE_CRON_RULE: ''
+      CACHE_RETENTION_INTERVAL: ''
+    ports:
+      - '127.0.0.1:3001:3000'
+    healthcheck:
+      test:
+        ['CMD', 'wget', '--spider', '-q', 'http://127.0.0.1:3000/splitprointegration/api/healthz']
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - uploads:/app/uploads
+
+volumes:
+  database:
+    name: split-pro-preview-database
+  uploads:
+    name: split-pro-preview-uploads

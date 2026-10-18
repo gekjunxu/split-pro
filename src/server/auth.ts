@@ -10,6 +10,7 @@ import KeycloakProvider from 'next-auth/providers/keycloak';
 import { env } from '~/env';
 import { db } from '~/server/db';
 import { sanitiseAdapterAccount } from '~/server/authAccount';
+import { appBasePath, withAppBasePath } from '~/utils/appBasePath';
 import { parseEnvBoolean } from '~/utils/env';
 
 import { mailServerConfig, sendSignUpEmail } from './mailer';
@@ -94,8 +95,55 @@ const SplitProPrismaAdapter = (...args: Parameters<typeof PrismaAdapter>): Adapt
  * @see https://next-auth.js.org/configuration/options
  */
 export const authOptions: NextAuthOptions = {
+  ...(appBasePath
+    ? {
+        cookies: {
+          sessionToken: {
+            name: '__Secure-splitpro-preview.session-token',
+            options: { httpOnly: true, sameSite: 'lax' as const, path: appBasePath, secure: true },
+          },
+          callbackUrl: {
+            name: '__Secure-splitpro-preview.callback-url',
+            options: { sameSite: 'lax' as const, path: appBasePath, secure: true },
+          },
+          csrfToken: {
+            name: '__Secure-splitpro-preview.csrf-token',
+            options: { httpOnly: true, sameSite: 'lax' as const, path: appBasePath, secure: true },
+          },
+          pkceCodeVerifier: {
+            name: '__Secure-splitpro-preview.pkce.code_verifier',
+            options: {
+              httpOnly: true,
+              sameSite: 'none' as const,
+              path: appBasePath,
+              secure: true,
+              maxAge: 900,
+            },
+          },
+          state: {
+            name: '__Secure-splitpro-preview.state',
+            options: {
+              httpOnly: true,
+              sameSite: 'none' as const,
+              path: appBasePath,
+              secure: true,
+              maxAge: 900,
+            },
+          },
+          nonce: {
+            name: '__Secure-splitpro-preview.nonce',
+            options: {
+              httpOnly: true,
+              sameSite: 'none' as const,
+              path: appBasePath,
+              secure: true,
+            },
+          },
+        },
+      }
+    : {}),
   pages: {
-    signIn: '/auth/signin',
+    signIn: withAppBasePath('/auth/signin'),
   },
   callbacks: {
     session: ({ session, user }) => ({
@@ -118,7 +166,7 @@ export const authOptions: NextAuthOptions = {
         });
 
         if (!existingUser) {
-          return `${getBaseUrl()}/auth/signin?error=SignupDisabled`;
+          return `${getBaseUrl()}${withAppBasePath('/auth/signin')}?error=SignupDisabled`;
         }
       }
 

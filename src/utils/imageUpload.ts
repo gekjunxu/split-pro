@@ -1,5 +1,6 @@
 import imageCompression from 'browser-image-compression';
 import { UploadResponseSchema } from '~/types/notifications';
+import { withAppBasePath } from '~/utils/appBasePath';
 
 import '~/env';
 
@@ -28,7 +29,7 @@ export const uploadImage = async (file: File): Promise<string> => {
   const formData = new FormData();
   formData.append('file', file);
 
-  const response = await fetch('/api/upload', {
+  const response = await fetch(withAppBasePath('/api/upload'), {
     method: 'POST',
     body: formData,
   });
@@ -51,9 +52,5 @@ export const toImageSrc = (value?: string | null) => {
     return undefined;
   }
 
-  if (value.startsWith('http://') || value.startsWith('https://') || value.startsWith('/')) {
-    return value;
-  }
-
-  return `/api/files/${value}`;
+  return withAppBasePath(value.startsWith('/') ? value : `/api/files/${value}`);
 };

@@ -2,6 +2,7 @@ import { defaultCache } from '@serwist/turbopack/worker';
 import { type PrecacheEntry, Serwist, type SerwistGlobalConfig } from 'serwist';
 
 import { getNotificationUrl, parsePushMessageJson } from '~/types/notifications';
+import { withAppBasePath } from '~/utils/appBasePath';
 
 // This declares the value of `injectionPoint` to TypeScript.
 // `injectionPoint` is the string that will be replaced by the
@@ -35,7 +36,7 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(title, {
       body: message,
-      icon: '/icons/android-chrome-192x192.png',
+      icon: withAppBasePath('/icons/android-chrome-192x192.png'),
       data,
     }),
   );
@@ -47,7 +48,7 @@ self.addEventListener('notificationclick', (event) => {
     (async () => {
       const clientList = await self.clients.matchAll({ type: 'window' });
 
-      const url = getNotificationUrl(event.notification.data);
+      const url = withAppBasePath(getNotificationUrl(event.notification.data));
 
       const matchingClient = clientList.find((client) => client.focused) ?? clientList[0];
 

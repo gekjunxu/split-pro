@@ -1,6 +1,6 @@
 import { Banknote, CreditCard, PencilIcon, PlusIcon, RotateCcw, Trash2 } from 'lucide-react';
 import Head from 'next/head';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { toast } from 'sonner';
 
 import MainLayout from '~/components/Layout/MainLayout';
@@ -64,6 +64,13 @@ const CardsPage: NextPageWithUser = () => {
   const [form, setForm] = useState<CardFormState>(emptyCardForm);
   const [open, setOpen] = useState(false);
 
+  const onDialogOpenChange = useCallback((nextOpen: boolean) => {
+    setOpen(nextOpen);
+    if (!nextOpen) {
+      setForm(emptyCardForm);
+    }
+  }, []);
+
   const refreshCards = useCallback(async () => {
     await utils.card.list.invalidate();
   }, [utils.card.list]);
@@ -118,13 +125,13 @@ const CardsPage: NextPageWithUser = () => {
         });
       }
       await refreshCards();
-      setOpen(false);
+      onDialogOpenChange(false);
       toast.success(t('cards.saved'));
     } catch (error) {
       console.error(error);
       toast.error(t('errors.something_went_wrong'));
     }
-  }, [createCard, form, refreshCards, t, updateCard]);
+  }, [createCard, form, onDialogOpenChange, refreshCards, t, updateCard]);
 
   const onArchive = useCallback(
     async (id: number) => {
@@ -181,12 +188,6 @@ const CardsPage: NextPageWithUser = () => {
       autoConvertToSettlement: checked,
     }));
   }, []);
-
-  useEffect(() => {
-    if (!open) {
-      setForm(emptyCardForm);
-    }
-  }, [open]);
 
   return (
     <>
@@ -253,7 +254,7 @@ const CardsPage: NextPageWithUser = () => {
             <p className="mt-16 text-center text-gray-500">{t('cards.empty')}</p>
           )}
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog open={open} onOpenChange={onDialogOpenChange}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{form.id ? t('cards.edit_source') : t('cards.add_source')}</DialogTitle>
@@ -351,7 +352,7 @@ const CardsPage: NextPageWithUser = () => {
               />
             </div>
             <DialogFooter>
-              <Button variant="ghost" onClick={() => setOpen(false)}>
+              <Button variant="ghost" onClick={() => onDialogOpenChange(false)}>
                 {t('actions.cancel')}
               </Button>
               <Button

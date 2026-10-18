@@ -12,17 +12,19 @@ export function proxy(req: NextRequest) {
   }
 
   if (req.nextUrl.pathname.startsWith('/pt')) {
-    return NextResponse.redirect(
-      new URL(req.nextUrl.pathname.replace('/pt', '/pt-PT') + req.nextUrl.search, req.url),
-    );
+    const destination = req.nextUrl.clone();
+    destination.pathname = req.nextUrl.pathname.replace('/pt', '/pt-PT');
+
+    return NextResponse.redirect(destination);
   }
 
   if (req.nextUrl.locale === 'default') {
     const locale = req.cookies.get('NEXT_LOCALE')?.value ?? 'en';
 
-    return NextResponse.redirect(
-      new URL(`/${locale}${req.nextUrl.pathname}${req.nextUrl.search}`, req.url),
-    );
+    const destination = req.nextUrl.clone();
+    destination.pathname = `/${locale}${req.nextUrl.pathname}`;
+
+    return NextResponse.redirect(destination);
   }
 
   return undefined;

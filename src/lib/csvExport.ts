@@ -1,14 +1,14 @@
-import { CURRENCIES, type CurrencyCode, isCurrencyCode } from '~/lib/currency';
+import { CURRENCIES, isCurrencyCode } from '~/lib/currency';
 
 type CsvValue = string | number | bigint | boolean | Date | null | undefined;
 
-type CsvUser = {
+interface CsvUser {
   id: number;
   name: string | null;
   email: string | null;
-};
+}
 
-export type TravelExpenseCsvExpense = {
+export interface TravelExpenseCsvExpense {
   id: string;
   expenseDate: Date;
   name: string;
@@ -24,7 +24,7 @@ export type TravelExpenseCsvExpense = {
   category: string;
   expenseParticipants: { user: CsvUser }[];
   expenseNotes: { note: string }[];
-};
+}
 
 export type PaymentSourceAnalyticsCsvExpense = Pick<
   TravelExpenseCsvExpense,
@@ -56,7 +56,7 @@ export const moneyToCsvAmount = (amount: bigint, currency: string) => {
     return `${amount}`;
   }
 
-  const decimalDigits = CURRENCIES[currency as CurrencyCode].decimalDigits;
+  const decimalDigits = CURRENCIES[currency].decimalDigits;
   const sign = 0n > amount ? '-' : '';
   const absoluteAmount = 0n > amount ? -amount : amount;
 

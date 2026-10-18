@@ -18,7 +18,7 @@ export async function register() {
 
     const { checkRecurrenceNotifications } =
       await import('./server/api/services/notificationService');
-    if (!env.TEST_MODE) {
+    if (!env.TEST_MODE && !env.DISABLE_PUSH_NOTIFICATIONS) {
       console.log('Starting recurrent expense notification checking...');
       setTimeout(checkRecurrenceNotifications, 1000 * 10); // Start after 10 seconds
     }

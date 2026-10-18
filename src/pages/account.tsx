@@ -2,7 +2,6 @@ import { SiGithub } from '@icons-pack/react-simple-icons';
 import {
   BadgeInfo,
   BarChart3,
-  WalletCards,
   CreditCard,
   Download,
   DownloadCloud,
@@ -10,6 +9,7 @@ import {
   HeartHandshakeIcon,
   Languages,
   Star,
+  WalletCards,
 } from 'lucide-react';
 import type { GetServerSideProps } from 'next';
 import { signOut } from 'next-auth/react';

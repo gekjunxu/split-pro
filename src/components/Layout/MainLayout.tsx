@@ -41,7 +41,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
     const mainLayout = mainLayoutRef.current;
 
     if (!mainLayout) {
-      return;
+      return () => {};
     }
 
     const storedScrollTop = mainLayoutScrollPositions.get(router.asPath);

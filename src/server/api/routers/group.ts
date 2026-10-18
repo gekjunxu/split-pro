@@ -233,7 +233,9 @@ export const groupRouter = createTRPCRouter({
     const totalsByUser = totals.reduce<Record<number, Record<string, bigint>>>((acc, total) => {
       acc[total.paidBy] ??= {};
       acc[total.paidBy]![total.currency] =
-        (acc[total.paidBy]![total.currency] ?? 0n) + (total._sum.amount ?? 0n);
+        (acc[total.paidBy]![total.currency] ?? 0n) +
+        // oxlint-disable-next-line no-underscore-dangle -- Prisma uses `_sum` for aggregate results.
+        (total._sum.amount ?? 0n);
       return acc;
     }, {});
 

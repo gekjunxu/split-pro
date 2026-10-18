@@ -15,6 +15,7 @@ import { cronFromBackend } from '~/lib/cron';
 import { type NextPageWithUser } from '~/types';
 import { type RouterOutputs, api } from '~/utils/api';
 import { withI18nStaticProps } from '~/utils/i18n/server';
+import { withAppBasePath } from '~/utils/appBasePath';
 
 type RecurringExpense = RouterOutputs['expense']['getRecurringExpenses'][number];
 
@@ -122,7 +123,7 @@ const RecurringPage: NextPageWithUser = () => {
     <>
       <Head>
         <title>{t('navigation.recurring')}</title>
-        <link rel="icon" href="/favicon.ico" />
+        <link rel="icon" href={withAppBasePath('/favicon.ico')} />
       </Head>
       <MainLayout
         title={

@@ -292,7 +292,7 @@ export const AddOrEditExpensePage: React.FC<{
     addExpenseMutation,
     apiUtils,
     group,
-                        paidBy,
+    paidBy,
     splitType,
     fileKey,
     setMultipleTransactions,
@@ -340,7 +340,14 @@ export const AddOrEditExpensePage: React.FC<{
       setPreviousCurrency(null);
       clearOriginalExpense();
     },
-    [clearOriginalExpense, setAmount, setAmountStr, currency, getCurrencyHelpersCached],
+    [
+      clearOriginalExpense,
+      setAmount,
+      setAmountStr,
+      previousCurrency,
+      currency,
+      getCurrencyHelpersCached,
+    ],
   );
 
   const onApplyOriginalExpense = useCallback(

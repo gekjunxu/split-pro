@@ -1,4 +1,4 @@
-import { type CurrencyCode, isCurrencyCode } from '~/lib/currency';
+import { isCurrencyCode } from '~/lib/currency';
 import { calculatePaidPerSettlementRate } from '~/lib/originalExpense';
 
 export interface CardAnalyticsExpense {
@@ -56,21 +56,23 @@ const incrementNumberMap = (map: Map<string, number>, key: string, amount: numbe
 const compareBigIntDesc = (a: bigint, b: bigint) => (a === b ? 0 : a > b ? -1 : 1);
 
 const toEffectiveCardRate = (expense: CardAnalyticsExpense) => {
-  if (!isCurrencyCode(expense.originalCurrency) || !isCurrencyCode(expense.currency)) {
+  if (
+    null === expense.originalAmount ||
+    !isCurrencyCode(expense.originalCurrency) ||
+    !isCurrencyCode(expense.currency)
+  ) {
     return expense.conversionRate ?? 0;
   }
 
   return calculatePaidPerSettlementRate({
-    paidAmount: expense.originalAmount! < 0n ? -expense.originalAmount! : expense.originalAmount!,
-    paidCurrency: expense.originalCurrency as CurrencyCode,
+    paidAmount: expense.originalAmount < 0n ? -expense.originalAmount : expense.originalAmount,
+    paidCurrency: expense.originalCurrency,
     settlementAmount: expense.amount < 0n ? -expense.amount : expense.amount,
-    settlementCurrency: expense.currency as CurrencyCode,
+    settlementCurrency: expense.currency,
   });
 };
 
-export const calculateCardAnalytics = (
-  expenses: CardAnalyticsExpense[],
-): CardAnalyticsSummary => {
+export const calculateCardAnalytics = (expenses: CardAnalyticsExpense[]): CardAnalyticsSummary => {
   const spendingByCard = new Map<string, bigint>();
   const foreignSpendingByCurrency = new Map<string, bigint>();
   const cardUsageCounts = new Map<string, number>();

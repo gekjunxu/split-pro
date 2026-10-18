@@ -37,8 +37,6 @@ HTMLElement.prototype.setPointerCapture = () => undefined;
 HTMLElement.prototype.releasePointerCapture = () => undefined;
 
 class TestResizeObserver implements ResizeObserver {
-  constructor(_callback: ResizeObserverCallback) {}
-
   observe(_target: Element, _options?: ResizeObserverOptions) {}
 
   unobserve(_target: Element) {}

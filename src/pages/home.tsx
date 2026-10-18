@@ -24,6 +24,7 @@ import { Button } from '~/components/ui/button';
 
 import { LanguageSelector } from '~/components/LanguageSelector';
 import { customServerSideTranslations } from '~/utils/i18n/server';
+import { withAppBasePath } from '~/utils/appBasePath';
 import { SiGithub } from '@icons-pack/react-simple-icons';
 
 const FeatureRow = ({ children }: { children: React.ReactNode }) => (
@@ -266,7 +267,7 @@ const MobileScreenShot = () => {
   return (
     <BackgroundGradient>
       <Image
-        src="/hero.webp"
+        src={withAppBasePath('/hero.webp')}
         className="bg-background rounded-[22px] border"
         width={300}
         height={550}
