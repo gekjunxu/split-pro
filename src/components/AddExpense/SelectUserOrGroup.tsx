@@ -1,17 +1,28 @@
 import { CheckIcon } from '@heroicons/react/24/outline';
 import { UserPlusIcon } from '@heroicons/react/24/solid';
-import { type Group, type GroupUser, type User } from '@prisma/client';
+import type { Group, GroupUser, SplitType, User } from '@prisma/client';
 import { SendIcon } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
 import Image from 'next/image';
 import React, { useCallback } from 'react';
+import { toast } from 'sonner';
 import { z } from 'zod';
 
 import { useAddExpenseStore } from '~/store/addStore';
 import { api } from '~/utils/api';
+import { deserializeDefaultSplit } from '~/lib/defaultSplit';
+import { getInviteErrorToastKey, isInviteEmailSendFailed } from '~/lib/error/invite';
 
 import { EntityAvatar } from '../ui/avatar';
 import { Button } from '../ui/button';
+
+type SelectableGroup = Group & {
+  groupUsers: (GroupUser & { user: User })[];
+  defaultSplit: {
+    splitType: SplitType;
+    shares: Record<string, string>;
+  } | null;
+};
 
 export const SelectUserOrGroup: React.FC<{
   enableSendingInvites: boolean;
@@ -39,13 +50,46 @@ export const SelectUserOrGroup: React.FC<{
   const onAddEmailClick = useCallback(
     (invite = false) => {
       if (isEmail.success) {
+        const email = nameOrEmail;
+        const removePendingParticipant = () => {
+          const pendingParticipant = useAddExpenseStore
+            .getState()
+            .participants.find((participant) => -1 === participant.id);
+          if (email === pendingParticipant?.email) {
+            removeParticipant(-1);
+          }
+        };
+        const addParticipant = (user: User) => {
+          removePendingParticipant();
+          addOrUpdateParticipant(user);
+          if (email === useAddExpenseStore.getState().nameOrEmail) {
+            setNameOrEmail('');
+          }
+        };
+
         addFriendMutation.mutate(
-          { email: nameOrEmail, sendInviteEmail: invite },
+          { email, sendInviteEmail: invite },
           {
-            onSuccess: (user) => {
-              removeParticipant(-1);
-              addOrUpdateParticipant(user);
-              setNameOrEmail('');
+            onSuccess: addParticipant,
+            onError: (err) => {
+              const appErrorCode = err.data?.appErrorCode;
+              toast.error(t(getInviteErrorToastKey(appErrorCode)));
+
+              // The friend row already exists whenever this router throws, so retry the participant-add.
+              if (isInviteEmailSendFailed(appErrorCode)) {
+                addFriendMutation.mutate(
+                  { email, sendInviteEmail: false },
+                  {
+                    onSuccess: addParticipant,
+                    onError: () => {
+                      removePendingParticipant();
+                      toast.error(t('errors.add_member_failed'));
+                    },
+                  },
+                );
+              } else {
+                removePendingParticipant();
+              }
             },
           },
         );
@@ -72,24 +116,32 @@ export const SelectUserOrGroup: React.FC<{
       addOrUpdateParticipant,
       setNameOrEmail,
       removeParticipant,
+      t,
     ],
   );
 
   const onGroupSelect = useCallback(
-    (group: Group & { groupUsers: (GroupUser & { user: User })[] }) => {
-      setGroup(group);
+    (selectedGroup: SelectableGroup) => {
+      setGroup(selectedGroup);
       const { currentUser } = useAddExpenseStore.getState();
       if (currentUser) {
         setParticipants([
           currentUser,
-          ...group.groupUsers.map((gu) => gu.user).filter((u) => u.id !== currentUser.id),
+          ...selectedGroup.groupUsers.map((gu) => gu.user).filter((u) => u.id !== currentUser.id),
         ]);
+      }
+      const parsedDefaultSplit = deserializeDefaultSplit(selectedGroup.defaultSplit);
+      if (parsedDefaultSplit) {
+        useAddExpenseStore
+          .getState()
+          .actions.applySplitPreset(parsedDefaultSplit.splitType, parsedDefaultSplit.shares);
       }
       setNameOrEmail('');
     },
     [setGroup, setParticipants, setNameOrEmail],
   );
 
+  const handleAddEmailClickTrue = useCallback(() => onAddEmailClick(true), [onAddEmailClick]);
   const handleAddEmailClickFalse = useCallback(() => onAddEmailClick(false), [onAddEmailClick]);
 
   if (group) {
@@ -134,7 +186,7 @@ export const SelectUserOrGroup: React.FC<{
               className="mt-4 text-cyan-500 hover:text-cyan-500"
               variant="outline"
               disabled={!isEmail.success}
-              onClick={handleAddEmailClickFalse}
+              onClick={handleAddEmailClickTrue}
             >
               <SendIcon className="mr-2 h-4 w-4" />
               {t('expense_details.add_expense_details.select_user_or_group.send_invite')}
@@ -161,9 +213,9 @@ export const SelectUserOrGroup: React.FC<{
                 className="flex w-full items-center justify-between border-b border-gray-900 py-4"
                 onClick={() => handleFriendClick(f)}
               >
-                <div className="flex items-center gap-4">
+                <div className="flex min-w-0 items-center gap-4">
                   <EntityAvatar entity={f} size={35} />
-                  <div>{f.name ?? f.email}</div>
+                  <div className="truncate">{f.name ?? f.email}</div>
                 </div>
                 {participants.some((p) => p.id === f.id) ? (
                   <div>
@@ -186,9 +238,9 @@ export const SelectUserOrGroup: React.FC<{
                   className="border-b border-gray-900 py-4"
                   onClick={() => onGroupSelect(g.group)}
                 >
-                  <div className="flex items-center gap-4">
+                  <div className="flex min-w-0 items-center gap-4">
                     <EntityAvatar entity={g.group} size={35} />
-                    <p>{g.group.name}</p>
+                    <p className="truncate">{g.group.name}</p>
                   </div>
                 </button>
               ))}
@@ -198,7 +250,12 @@ export const SelectUserOrGroup: React.FC<{
 
         {0 === filteredFriends?.length && 0 === filteredGroups?.length ? (
           <div className="mt-[30%] flex flex-col items-center justify-center gap-20 transition-discrete starting:opacity-0">
-            <Image alt="empty user image" src="/empty_img.svg" width={250} height={250} />
+            <Image
+              alt={t('expense_details.add_expense_details.select_user_or_group.empty_image_alt')}
+              src="/empty_img.svg"
+              width={250}
+              height={250}
+            />
           </div>
         ) : null}
       </div>

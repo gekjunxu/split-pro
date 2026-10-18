@@ -60,7 +60,7 @@ Create expenses with categories, currencies, dates, and receipt attachments. Spl
 
 ### 2) Application info
 
-SplitPro is a PWA and that is the recommended way to use the app. It supports push notifications for new expenses and updates.
+SplitPro is a PWA and that is the recommended way to use the app. It supports push notifications for new expenses and updates, but push delivery requires additional configuration. See [docs/CONFIGURATION.md](docs/CONFIGURATION.md).
 
 ### 3) Groups
 
@@ -90,7 +90,7 @@ SplitPro can display balances in a single currency, convert expense amounts, and
 
 ### 8) Recurring transactions
 
-Recurring expenses require a PostgreSQL database with the `pg_cron` extension. We publish a prebuilt Postgres image with `pg_cron`; example usage is in [docker/prod/compose.yml](docker/prod/compose.yml). If you use another database, you must enable the extension and adjust configuration. See [docs/RECURRING_TRANSACTIONS.md](docs/RECURRING_TRANSACTIONS.md).
+Recurring expenses require a PostgreSQL database with the `pg_cron` extension. We publish a prebuilt Postgres image with `pg_cron`; example usage is in [docker/prod/compose.yml](docker/prod/compose.yml). If you use another database, you must enable the extension and adjust configuration. A non-superuser database role is supported when `pg_cron` is preinstalled; see [docker/README.md#external--managed-postgresql-non-superuser](docker/README.md#external--managed-postgresql-non-superuser) and [docs/CONFIGURATION.md#external-postgresql-prerequisites-pg_cron](docs/CONFIGURATION.md#external-postgresql-prerequisites-pg_cron). See [docs/RECURRING_TRANSACTIONS.md](docs/RECURRING_TRANSACTIONS.md).
 
 ### 9) Bank transaction integration
 
@@ -115,7 +115,7 @@ Bank integration allows you to load transactions from providers like Plaid and c
 
 ## Versions
 
-SplitPro is for self hosting. To get the most recent features, build an image from source. Stabilized changes (GitHub releases) are available as Docker images on DockerHub and GHCR. The old community instance at https://splitpro.app is no longer maintained and is stuck at version `1.3.4`.
+SplitPro is for self hosting. To get the most recent features, build an image from source. Stabilized changes (GitHub releases) are available as Docker images on DockerHub and GHCR. The hosted instance at https://splitpro.app is managed in [oss-apps/split-pro-cloud](https://github.com/oss-apps/split-pro-cloud).
 
 ## Why
 
@@ -171,7 +171,7 @@ Thanks to @johanngrobe there is now also a Proxmox Community Script available [h
 
 ### Development and contributing
 
-See the [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) document.
+See the [CONTRIBUTING.md](CONTRIBUTING.md) document.
 
 ## Sponsors
 
@@ -192,4 +192,4 @@ We are grateful for the support of our sponsors.
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=oss-apps/split-pro&type=Date)](https://star-history.com/#oss-apps/split-pro&Date)
+[![Star History Chart](https://star-history.dera.page/svg?repos=oss-apps/split-pro&type=Date)](https://star-history.dera.page/#oss-apps/split-pro&Date)

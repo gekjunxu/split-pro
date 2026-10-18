@@ -4,10 +4,12 @@ import { clsx } from 'clsx';
 import { CheckIcon, SendIcon } from 'lucide-react';
 import React, { useCallback, useState } from 'react';
 import { useTranslation } from 'next-i18next';
+import { toast } from 'sonner';
 import { z } from 'zod';
 
 import { Button } from '~/components/ui/button';
 import { AppDrawer } from '~/components/ui/drawer';
+import { getInviteErrorToastKey, isInviteEmailSendFailed } from '~/lib/error/invite';
 import { api } from '~/utils/api';
 
 import { EntityAvatar } from '../ui/avatar';
@@ -49,11 +51,11 @@ const AddMembers: React.FC<{
   }
 
   const onSave = useCallback(
-    (userIds: Record<number, boolean>) => {
+    (selectedUserIds: Record<number, boolean>) => {
       const users = [];
 
-      for (const userId of Object.keys(userIds)) {
-        if (userIds[parseInt(userId)]) {
+      for (const userId of Object.keys(selectedUserIds)) {
+        if (selectedUserIds[parseInt(userId)]) {
           users.push(parseInt(userId));
         }
       }
@@ -73,23 +75,40 @@ const AddMembers: React.FC<{
           onSuccess: () => {
             utils.group.getGroupDetails.invalidate({ groupId: group.id }).catch(console.error);
           },
+          onError: () => toast.error(t('errors.add_member_failed')),
         },
       );
       setOpen(false);
       setUserIds({});
     },
-    [addMembersMutation, group.id, utils],
+    [addMembersMutation, group.id, t, utils],
   );
 
   const isEmail = z.string().email().safeParse(inputValue);
 
   function onAddEmailClick(invite = false) {
     if (isEmail.success) {
+      const email = inputValue.toLowerCase();
+      const addUserToGroup = (user: { id: number }) => onSave({ ...userIds, [user.id]: true });
+
       addFriendMutation.mutate(
-        { email: inputValue.toLowerCase(), sendInviteEmail: invite },
+        { email, sendInviteEmail: invite },
         {
-          onSuccess: (user) => {
-            onSave({ ...userIds, [user.id]: true });
+          onSuccess: addUserToGroup,
+          onError: (err) => {
+            const appErrorCode = err.data?.appErrorCode;
+            toast.error(t(getInviteErrorToastKey(appErrorCode)));
+
+            // The friend row already exists whenever this router throws, so retry the group-add.
+            if (isInviteEmailSendFailed(appErrorCode)) {
+              addFriendMutation.mutate(
+                { email, sendInviteEmail: false },
+                {
+                  onSuccess: addUserToGroup,
+                  onError: () => toast.error(t('errors.add_member_failed')),
+                },
+              );
+            }
           },
         },
       );

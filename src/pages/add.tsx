@@ -19,6 +19,7 @@ import { toast } from 'sonner';
 import { deserializeDefaultSplit } from '~/lib/defaultSplit';
 import { useAppStore } from '~/store/appStore';
 import { BigMath } from '~/utils/numbers';
+import { isStringQueryParam } from '~/utils/queryParams';
 
 const AddPage: NextPageWithUser<{
   enableSendingInvites: boolean;
@@ -49,7 +50,15 @@ const AddPage: NextPageWithUser<{
   const initializedFriendIdRef = useRef<number | null>(null);
   const initializedExpenseIdRef = useRef<string | null>(null);
 
-  useEffect(() => () => resetState(), [resetState]);
+  useEffect(
+    () => () => {
+      resetState();
+      initializedExpenseIdRef.current = null;
+      initializedGroupIdRef.current = null;
+      initializedFriendIdRef.current = null;
+    },
+    [resetState],
+  );
 
   // TODO: Set this globally from env var with app router later
   const { setMaxUploadFileSizeMB } = useAppStore((s) => s.actions);
@@ -77,49 +86,49 @@ const AddPage: NextPageWithUser<{
     }
   }, [setCurrentUser, setCurrency, groupId, router.isReady, user]);
 
-  const _groupId = parseInt(groupId as string);
-  const _friendId = parseInt(friendId as string);
-  const _expenseId = expenseId as string;
+  const parsedGroupId = isStringQueryParam(groupId) ? parseInt(groupId) : Number.NaN;
+  const parsedFriendId = isStringQueryParam(friendId) ? parseInt(friendId) : Number.NaN;
+  const parsedExpenseId = isStringQueryParam(expenseId) ? expenseId : '';
   const groupQuery = api.group.getGroupDetails.useQuery(
-    { groupId: _groupId },
+    { groupId: parsedGroupId },
     {
-      enabled: Boolean(_groupId) && !_expenseId,
+      enabled: router.isReady && Boolean(parsedGroupId) && !parsedExpenseId,
       refetchOnReconnect: false,
       refetchOnWindowFocus: false,
     },
   );
 
   const friendQuery = api.user.getFriend.useQuery(
-    { friendId: _friendId },
+    { friendId: parsedFriendId },
     {
-      enabled: Boolean(_friendId) && !_expenseId,
+      enabled: router.isReady && Boolean(parsedFriendId) && !parsedExpenseId,
       refetchOnReconnect: false,
       refetchOnWindowFocus: false,
     },
   );
 
   const expenseQuery = api.expense.getExpenseDetails.useQuery(
-    { expenseId: _expenseId },
+    { expenseId: parsedExpenseId },
     {
-      enabled: Boolean(_expenseId),
+      enabled: router.isReady && Boolean(parsedExpenseId),
       refetchOnReconnect: false,
       refetchOnWindowFocus: false,
     },
   );
 
   useEffect(() => {
-    if (!groupId || !_groupId) {
+    if (!groupId || !parsedGroupId) {
       initializedGroupIdRef.current = null;
       return;
     }
 
-    if (initializedGroupIdRef.current === _groupId) {
+    if (initializedGroupIdRef.current === parsedGroupId) {
       return;
     }
 
     // Set group
     if (groupId && !groupQuery.isPending && groupQuery.data && currentUser) {
-      initializedGroupIdRef.current = _groupId;
+      initializedGroupIdRef.current = parsedGroupId;
       setGroup(groupQuery.data);
 
       setParticipants([
@@ -140,7 +149,7 @@ const AddPage: NextPageWithUser<{
       useAddExpenseStore.setState({ showFriends: false });
     }
   }, [
-    _groupId,
+    parsedGroupId,
     groupId,
     groupQuery.isPending,
     groupQuery.data,
@@ -152,17 +161,17 @@ const AddPage: NextPageWithUser<{
   ]);
 
   useEffect(() => {
-    if (!friendId || !_friendId) {
+    if (!friendId || !parsedFriendId) {
       initializedFriendIdRef.current = null;
       return;
     }
 
-    if (initializedFriendIdRef.current === _friendId) {
+    if (initializedFriendIdRef.current === parsedFriendId) {
       return;
     }
 
     if (friendId && currentUser && friendQuery.data) {
-      initializedFriendIdRef.current = _friendId;
+      initializedFriendIdRef.current = parsedFriendId;
       setParticipants([currentUser, friendQuery.data]);
       const parsedDefaultSplit = deserializeDefaultSplit(friendQuery.data.defaultSplit);
       if (parsedDefaultSplit) {
@@ -170,27 +179,19 @@ const AddPage: NextPageWithUser<{
       }
       useAddExpenseStore.setState({ showFriends: false });
     }
-  }, [
-    _friendId,
-    friendId,
-    friendQuery.isPending,
-    friendQuery.data,
-    currentUser,
-    setParticipants,
-    applySplitPreset,
-  ]);
+  }, [parsedFriendId, friendId, friendQuery.data, currentUser, setParticipants, applySplitPreset]);
 
   useEffect(() => {
-    if (!_expenseId || !expenseQuery.data) {
+    if (!parsedExpenseId || !expenseQuery.data) {
       initializedExpenseIdRef.current = null;
       return;
     }
 
-    if (initializedExpenseIdRef.current === _expenseId) {
+    if (initializedExpenseIdRef.current === parsedExpenseId) {
       return;
     }
 
-    initializedExpenseIdRef.current = _expenseId;
+    initializedExpenseIdRef.current = parsedExpenseId;
 
     if (expenseQuery.data.group) {
       setGroup(expenseQuery.data.group);
@@ -251,17 +252,8 @@ const AddPage: NextPageWithUser<{
       setFileKey(expenseQuery.data.fileKey);
     }
   }, [
-    _expenseId,
-    _friendId,
-    _groupId,
-    friendId,
+    parsedExpenseId,
     expenseQuery.data,
-    groupId,
-    friendQuery.data,
-    friendQuery.isPending,
-    groupQuery.data,
-    groupQuery.isPending,
-    currentUser,
     setAmount,
     setAmountStr,
     setCategory,
@@ -283,14 +275,14 @@ const AddPage: NextPageWithUser<{
   return (
     <>
       <Head>
-        <title>{_expenseId ? t('actions.edit_expense') : t('actions.add_expense')}</title>
+        <title>{parsedExpenseId ? t('actions.edit_expense') : t('actions.add_expense')}</title>
       </Head>
       <MainLayout hideAppBar>
-        {currentUser && (!_expenseId || expenseQuery.data) && (
+        {currentUser && (!parsedExpenseId || expenseQuery.data) && (
           <AddOrEditExpensePage
             enableSendingInvites={enableSendingInvites}
-            expenseId={_expenseId}
-            bankConnectionEnabled={Boolean(bankConnectionEnabled)}
+            expenseId={parsedExpenseId}
+            bankConnectionEnabled={bankConnectionEnabled}
           />
         )}
       </MainLayout>
@@ -304,7 +296,7 @@ export default AddPage;
 
 export const getServerSideProps: GetServerSideProps = async (context) => ({
   props: {
-    enableSendingInvites: Boolean(env.ENABLE_SENDING_INVITES),
+    enableSendingInvites: env.ENABLE_SENDING_INVITES,
     bankConnectionEnabled: isBankConnectionConfigured(),
     maxUploadFileSizeMB: env.UPLOAD_MAX_FILE_SIZE_MB,
     ...(await customServerSideTranslations(context.locale, ['common', 'categories', 'currencies'])),

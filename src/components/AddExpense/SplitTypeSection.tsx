@@ -63,9 +63,9 @@ const PayerRow = ({ p, isPaying }: { p: Participant; isPaying: boolean }) => {
 
   return (
     <AppDrawerClose className="flex items-center justify-between px-2" onClick={onClick}>
-      <div className="flex items-center gap-1">
+      <div className="flex min-w-0 items-center gap-1">
         <EntityAvatar entity={p} size={30} />
-        <p className="ml-4">{displayName(p, currentUser?.id)}</p>
+        <p className="ml-4 truncate">{displayName(p, currentUser?.id)}</p>
       </div>
       {isPaying ? <Check className="h-6 w-6 text-cyan-500" /> : null}
     </AppDrawerClose>
@@ -96,13 +96,6 @@ export const SplitExpenseForm: React.FC<
     [onOpenChange, setSplitScreenOpen],
   );
 
-  const onTabChange = useCallback(
-    (value: string) => {
-      setSplitType(value as SplitType);
-    },
-    [setSplitType],
-  );
-
   const splitProps = useMemo(() => {
     const allSplitProps = getSplitProps(t);
     if (!allowedSplitTypes || 0 === allowedSplitTypes.length) {
@@ -111,6 +104,16 @@ export const SplitExpenseForm: React.FC<
 
     return allSplitProps.filter((props) => allowedSplitTypes.includes(props.splitType));
   }, [allowedSplitTypes, t]);
+
+  const onTabChange = useCallback(
+    (value: string) => {
+      const selectedSplitType = splitProps.find((props) => props.splitType === value)?.splitType;
+      if (selectedSplitType) {
+        setSplitType(selectedSplitType);
+      }
+    },
+    [setSplitType, splitProps],
+  );
 
   const activeSplitType = splitProps.some((props) => props.splitType === splitType)
     ? splitType
@@ -140,8 +143,8 @@ export const SplitExpenseForm: React.FC<
     >
       <Tabs value={activeSplitType} className="mx-auto mt-5 w-full" onValueChange={onTabChange}>
         <TabsList className="w-full justify-between">
-          {splitProps.map(({ splitType, iconComponent: Icon }) => (
-            <TabsTrigger key={splitType} value={splitType} className="text-xs">
+          {splitProps.map(({ splitType: itemSplitType, iconComponent: Icon }) => (
+            <TabsTrigger key={itemSplitType} value={itemSplitType} className="text-xs">
               <Icon className="h-5 w-5" />
             </TabsTrigger>
           ))}
@@ -258,7 +261,7 @@ const SplitSection: React.FC<SplitSectionProps> = (props) => {
   );
   const currency = useAddExpenseStore((s) => s.currency);
   const { t, getCurrencyHelpersCached } = useTranslationWithUtils();
-  const { toUIString, toSafeBigInt } = getCurrencyHelpersCached(currency);
+  const { toUIString } = getCurrencyHelpersCached(currency);
   const amount = useAddExpenseStore((s) => s.amount);
   const canSplitScreenClosed = useAddExpenseStore((s) => s.canSplitScreenClosed);
   const splitShares = useAddExpenseStore((s) => s.splitShares);
@@ -288,10 +291,14 @@ const SplitSection: React.FC<SplitSectionProps> = (props) => {
         userId,
         value === undefined || '' === value
           ? 0n
-          : BigMath.abs(toSafeBigInt(isCurrency ? value : parseFloat(value))),
+          : BigMath.abs(
+              getCurrencyHelpersCached(currency).toSafeBigInt(
+                isCurrency ? value : parseFloat(value),
+              ),
+            ),
       );
     },
-    [setSplitShare, splitType, toSafeBigInt, isCurrency],
+    [setSplitShare, splitType, getCurrencyHelpersCached, currency, isCurrency],
   );
 
   return (
@@ -304,6 +311,11 @@ const SplitSection: React.FC<SplitSectionProps> = (props) => {
       >
         {fmtSummartyText(amount, totalShares, toUIString)}
       </p>
+      {!canSplitScreenClosed ? (
+        <p role="alert" className="text-center text-xs text-red-500">
+          {t('errors.invalid_split')}
+        </p>
+      ) : null}
       {isBoolean && (
         <Button
           variant="outline"
@@ -434,10 +446,10 @@ export const UserAndAmount: React.FC<{ user: Participant; currency: CurrencyCode
   const shareAmount = paidBy?.id === user.id ? (user.amount ?? 0n) - amount : user.amount;
 
   return (
-    <div className="flex h-11 items-center gap-2">
+    <div className="flex h-11 min-w-0 flex-1 items-center gap-2">
       <EntityAvatar entity={user} size={30} />
-      <div className="flex flex-col items-start">
-        <p>{displayName(user, currentUser?.id)}</p>
+      <div className="flex min-w-0 flex-col">
+        <p className="truncate">{displayName(user, currentUser?.id)}</p>
         <p
           className={cn(
             canSplitScreenClosed || 'hidden',

@@ -57,12 +57,25 @@ export const groupRouter = createTRPCRouter({
                 user: true,
               },
             },
+            groupDefaultSplit: true,
           },
         },
       },
     });
 
-    return groups;
+    return groups.map((groupUser) =>
+      Object.assign(groupUser, {
+        group: {
+          ...groupUser.group,
+          defaultSplit: groupUser.group.groupDefaultSplit
+            ? parseSerializedDefaultSplit(
+                groupUser.group.groupDefaultSplit.splitType,
+                groupUser.group.groupDefaultSplit.shares,
+              )
+            : null,
+        },
+      }),
+    );
   }),
 
   getAllGroupsWithBalances: protectedProcedure
@@ -106,10 +119,7 @@ export const groupRouter = createTRPCRouter({
           balances[balance.currency] = (balances[balance.currency] ?? 0n) + balance.amount;
         }
 
-        return {
-          ...g.group,
-          balances,
-        };
+        return Object.assign(g.group, { balances });
       });
 
       return groupsWithBalances;

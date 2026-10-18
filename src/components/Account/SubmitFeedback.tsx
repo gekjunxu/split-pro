@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ChevronRight, MessageSquare } from 'lucide-react';
+import { MessageSquare } from 'lucide-react';
 import React, { useCallback, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -36,10 +36,12 @@ export const SubmitFeedback: React.FC = () => {
       try {
         await submitFeedbackMutation.mutateAsync({ feedback: values.feedback });
         feedbackForm.reset();
-        toast.success(t('ui.messages.submit_success'), { duration: 1500 });
+        toast.success(t('account.submit_feedback_details.messages.submit_success'), {
+          duration: 1500,
+        });
       } catch (e) {
         console.info(e);
-        toast.error(t('ui.messages.submit_error'));
+        toast.error(t('account.submit_feedback_details.messages.submit_error'));
       }
       setFeedbackOpen(false);
     },
@@ -62,15 +64,15 @@ export const SubmitFeedback: React.FC = () => {
     await feedbackForm.handleSubmit(onGroupSubmit)();
   }, [feedbackForm, onGroupSubmit]);
 
-  const field = useCallback(
-    ({ field }: any) => (
+  const renderField = useCallback(
+    ({ field: formField }: any) => (
       <FormItem className="w-full">
         <FormControl>
           <Textarea
             className="text-lg placeholder:text-sm"
             rows={5}
             placeholder={t('account.submit_feedback_details.placeholder')}
-            {...field}
+            {...formField}
           />
         </FormControl>
         <FormMessage />
@@ -98,7 +100,7 @@ export const SubmitFeedback: React.FC = () => {
             onSubmit={feedbackForm.handleSubmit(onGroupSubmit)}
             className="mt-4 flex w-full items-start gap-4"
           >
-            <FormField control={feedbackForm.control} name="feedback" render={field} />
+            <FormField control={feedbackForm.control} name="feedback" render={renderField} />
           </form>
         </Form>
       </div>

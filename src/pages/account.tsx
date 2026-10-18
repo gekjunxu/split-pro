@@ -1,4 +1,4 @@
-import { SiGithub, SiX } from '@icons-pack/react-simple-icons';
+import { SiGithub } from '@icons-pack/react-simple-icons';
 import {
   BadgeInfo,
   BarChart3,
@@ -88,7 +88,10 @@ const AccountPage: NextPageWithUser<{
     [updateDetailsMutation, utils.user.me, t],
   );
 
-  const header = useMemo(() => <div className="text-3xl font-semibold">Account</div>, []);
+  const header = useMemo(
+    () => <div className="text-3xl font-semibold">{t('account.title')}</div>,
+    [t],
+  );
 
   const onSignOut = useCallback(async () => {
     await signOut({ redirect: false });
@@ -211,7 +214,7 @@ AccountPage.auth = true;
 export const getServerSideProps: GetServerSideProps = async (context) => ({
   props: {
     feedbackPossible: Boolean(env.FEEDBACK_EMAIL),
-    bankConnectionEnabled: Boolean(isBankConnectionConfigured()),
+    bankConnectionEnabled: isBankConnectionConfigured(),
     bankConnection: whichBankConnectionConfigured(),
     ...(await customServerSideTranslations(context.locale, ['common', 'currencies'])),
     maxUploadFileSizeMB: env.UPLOAD_MAX_FILE_SIZE_MB,

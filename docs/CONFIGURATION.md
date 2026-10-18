@@ -13,6 +13,44 @@ This document lists SplitPro environment variables and how they are used. The au
 - `POSTGRES_PORT`: Database port.
 - `DATABASE_URL`: Full connection string used by the app.
 
+`POSTGRES_USER` may be a regular (non-superuser) role when `pg_cron` is preinstalled. See [docker/README.md](../docker/README.md).
+
+#### External PostgreSQL prerequisites (pg_cron)
+
+If SplitPro connects to an external/managed PostgreSQL instance, make sure your database administrator enables `pg_cron` on the PostgreSQL server before first startup.
+
+1. Set PostgreSQL server settings (same values used in [`docker/prod/compose.yml`](../docker/prod/compose.yml)):
+
+   ```conf
+   shared_preload_libraries = 'pg_cron'
+   cron.database_name = '<your_splitpro_db>'
+   cron.timezone = 'UTC'
+   ```
+
+   Restart PostgreSQL after changing these settings.
+
+2. Connect to the SplitPro database as a superuser/admin and install + grant `pg_cron` access:
+
+   ```sql
+   CREATE EXTENSION IF NOT EXISTS pg_cron;
+   GRANT USAGE ON SCHEMA cron TO <app_user>;
+   GRANT SELECT, REFERENCES ON cron.job TO <app_user>;
+   GRANT SELECT ON cron.job_run_details TO <app_user>;
+   ```
+
+3. Verify setup:
+
+   ```sql
+   SHOW shared_preload_libraries;
+   SHOW cron.database_name;
+   SHOW cron.timezone;
+   SELECT extname FROM pg_extension WHERE extname = 'pg_cron';
+   ```
+
+SplitPro can then run with a regular (non-superuser) `POSTGRES_USER`.
+
+If your deployment sits behind a NAT/firewall/proxy that can silently drop idle TCP connections (leaving the pool with dead sockets that hang instead of erroring), add `connect_timeout` and `socket_timeout` (seconds) to `DATABASE_URL` so Prisma gives up on a stale connection instead of hanging indefinitely - e.g. `?connect_timeout=5&socket_timeout=5`. `/api/readyz`'s own query timeout only bounds queries that reach Postgres; it can't help if the socket itself is dead. See [docker/README.md#health-checks](../docker/README.md#health-checks) for `/api/healthz`/`/api/readyz` details and example probe configuration.
+
 ### Authentication (NextAuth)
 
 - `NEXTAUTH_SECRET`: Secret used to sign tokens. Generate with `openssl rand -base64 32`.
@@ -67,6 +105,10 @@ Used for magic-link login and invites.
 
 ### OAuth providers
 
+#### Shared OAuth settings
+
+- `OAUTH_AUTO_REDIRECT`: Optional flag. When set to `true`, the sign-in page automatically redirects when exactly one OAuth provider is configured and no other authentication providers are enabled. This applies to Google, Authentik, Keycloak, and generic OIDC.
+
 #### Google
 
 - `GOOGLE_CLIENT_ID`
@@ -94,9 +136,17 @@ Used for magic-link login and invites.
 
 ### Web push notifications
 
-- `WEB_PUSH_PRIVATE_KEY`
-- `WEB_PUSH_PUBLIC_KEY`
-- `WEB_PUSH_EMAIL`
+Push notifications are disabled until VAPID keys are configured. Without them, the in-app notification toggle has no effect.
+
+To enable push notifications:
+
+1. Generate a VAPID keypair, either with `npx web-push generate-vapid-keys --json` or the online tool at https://vapidkeys.com
+2. Set these env vars in `.env`:
+   - `WEB_PUSH_PUBLIC_KEY` — generated public key
+   - `WEB_PUSH_PRIVATE_KEY` — generated private key
+   - `WEB_PUSH_EMAIL` — contact email as a bare address (e.g. `you@example.com`); the app prepends `mailto:` automatically
+3. Redeploy or restart your container.
+4. If you previously toggled notifications off in the PWA or system settings, re-enable them after redeploying.
 
 ### Feedback email
 

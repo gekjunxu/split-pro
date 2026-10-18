@@ -9,10 +9,12 @@
 
 import { TRPCError, initTRPC } from '@trpc/server';
 import { type CreateNextContextOptions } from '@trpc/server/adapters/next';
+import { type PrismaClient } from '@prisma/client';
 import { type Session } from 'next-auth';
 import superjson from 'superjson';
 import { ZodError, z } from 'zod';
 
+import { getAppErrorCode } from '~/server/api/appError';
 import { getServerAuthSession } from '~/server/auth';
 import { db } from '~/server/db';
 
@@ -24,8 +26,9 @@ import { db } from '~/server/db';
  * These allow you to access things when processing a request, like the database, the session, etc.
  */
 
-interface CreateContextOptions {
+export interface CreateContextOptions {
   session: Session | null;
+  db?: PrismaClient;
 }
 
 /**
@@ -38,9 +41,9 @@ interface CreateContextOptions {
  *
  * @see https://create.t3.gg/en/usage/trpc#-serverapitrpcts
  */
-const createInnerTRPCContext = (opts: CreateContextOptions) => ({
+export const createInnerTRPCContext = (opts: CreateContextOptions) => ({
   session: opts.session,
-  db,
+  db: opts.db ?? db,
 });
 
 /**
@@ -60,6 +63,8 @@ export const createTRPCContext = async (opts: CreateNextContextOptions) => {
   });
 };
 
+export type InnerTRPCContext = ReturnType<typeof createInnerTRPCContext>;
+
 /**
  * 2. INITIALIZATION
  *
@@ -68,7 +73,7 @@ export const createTRPCContext = async (opts: CreateNextContextOptions) => {
  * errors on the backend.
  */
 
-const t = initTRPC.context<typeof createTRPCContext>().create({
+const t = initTRPC.context<InnerTRPCContext>().create({
   transformer: superjson,
   errorFormatter({ shape, error }) {
     return {
@@ -76,6 +81,7 @@ const t = initTRPC.context<typeof createTRPCContext>().create({
       data: {
         ...shape.data,
         zodError: error.cause instanceof ZodError ? error.cause.flatten() : null,
+        appErrorCode: getAppErrorCode(error.cause),
       },
     };
   },
@@ -119,7 +125,7 @@ export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
 
   return next({
     ctx: {
-      // infers the `session` as non-nullable
+      // Infers the `session` as non-nullable
       session: { ...ctx.session, user: ctx.session.user },
     },
   });

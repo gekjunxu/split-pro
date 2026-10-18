@@ -8,6 +8,7 @@ import {
   initSplitShares,
   useAddExpenseStore,
 } from '~/store/addStore';
+import { getCurrencyHelpers } from '~/utils/numbers';
 
 // Mock dependencies
 jest.mock('~/utils/array', () => ({
@@ -143,6 +144,64 @@ describe('calculateParticipantSplit', () => {
       expect(result.participants[0]?.amount).toBe(10000n); // Payer: -10000n + 20000n = 10000n
       expect(result.participants[1]?.amount).toBe(-10000n); // Owes $100
       expect(result.participants[2]?.amount).toBe(0n); // Excluded from split
+    });
+
+    it('should allow one non-payer to owe the full amount', () => {
+      const participants = createParticipants([user1, user2]);
+      const splitShares = createSplitShares(participants, SplitType.EQUAL, [0n, 1n]);
+
+      const state: Partial<AddExpenseState> = {
+        amount: 10000n,
+        participants,
+        splitType: SplitType.EQUAL,
+        splitShares,
+        paidBy: user1,
+        expenseDate: new Date('2024-01-01'),
+      };
+
+      const result = calculateParticipantSplit(state as AddExpenseState);
+
+      expect(result.participants[0]?.amount).toBe(10000n);
+      expect(result.participants[1]?.amount).toBe(-10000n);
+      expect(result.canSplitScreenClosed).toBe(true);
+    });
+
+    it('should mark a multi-person self-only split as incomplete', () => {
+      const participants = createParticipants([user1, user2]);
+      const splitShares = createSplitShares(participants, SplitType.EQUAL, [1n, 0n]);
+
+      const state: Partial<AddExpenseState> = {
+        amount: 10000n,
+        participants,
+        splitType: SplitType.EQUAL,
+        splitShares,
+        paidBy: user1,
+        expenseDate: new Date('2024-01-01'),
+      };
+
+      const result = calculateParticipantSplit(state as AddExpenseState);
+
+      expect(result.participants[0]?.amount).toBe(0n);
+      expect(result.participants[1]?.amount).toBe(0n);
+      expect(result.canSplitScreenClosed).toBe(false);
+    });
+
+    it('should mark equal split incomplete when every share is disabled', () => {
+      const participants = createParticipants([user1, user2]);
+      const splitShares = createSplitShares(participants, SplitType.EQUAL, [0n, 0n]);
+
+      const state: Partial<AddExpenseState> = {
+        amount: 10000n,
+        participants,
+        splitType: SplitType.EQUAL,
+        splitShares,
+        paidBy: user1,
+        expenseDate: new Date('2024-01-01'),
+      };
+
+      const result = calculateParticipantSplit(state as AddExpenseState);
+
+      expect(result.canSplitScreenClosed).toBe(false);
     });
 
     it('should handle uneven division with penny adjustment', () => {
@@ -543,6 +602,7 @@ describe('calculateParticipantSplit', () => {
       const totalAmount = result.participants.reduce((sum, p) => sum + (p.amount ?? 0n), 0n);
 
       expect(totalAmount).toBe(0n);
+      expect(result.participants.some((p) => -1n === p.amount)).toBe(true);
     });
   });
 });
@@ -616,6 +676,86 @@ describe('calculateSplitShareBasedOnAmount', () => {
   });
 
   describe('SplitType.SHARE', () => {
+    it.each([
+      {
+        scenario: 'the payer received the penny',
+        amount: 7793n,
+        balances: [4675n, -4675n],
+        shares: [200n, 300n],
+      },
+      {
+        scenario: 'the other participant received the penny',
+        amount: 7793n,
+        balances: [4676n, -4676n],
+        shares: [200n, 300n],
+      },
+      {
+        scenario: 'two participants received pennies',
+        amount: 12002n,
+        balances: [6001n, -3001n, -3000n],
+        shares: [200n, 100n, 100n],
+      },
+      {
+        scenario: 'a participant has no share',
+        amount: 7793n,
+        balances: [4675n, -4675n, 0n],
+        shares: [200n, 300n, 0n],
+      },
+      {
+        scenario: 'the payer has no share',
+        amount: 7793n,
+        balances: [7793n, -3118n, -4675n],
+        shares: [0n, 200n, 300n],
+      },
+      {
+        scenario: 'the payer has a zero net balance',
+        amount: 7793n,
+        balances: [0n, 0n],
+        shares: [100n, 0n],
+      },
+      {
+        scenario: 'penny-sized costs must remain positive',
+        amount: 2n,
+        balances: [1n, -1n],
+        shares: [100n, 100n],
+      },
+    ])('recovers a simple ratio when $scenario (#727)', ({ amount, balances, shares }) => {
+      const participants = createParticipants(
+        [user1, user2, user3].slice(0, balances.length),
+        balances,
+      );
+      const splitShares = createSplitShares(participants, SplitType.SHARE, []);
+
+      calculateSplitShareBasedOnAmount(amount, participants, SplitType.SHARE, splitShares, user1);
+
+      expect(
+        participants.map((participant) => splitShares[participant.id]?.[SplitType.SHARE]),
+      ).toEqual(shares);
+      expect(participants.map((participant) => participant.amount)).toEqual(balances);
+    });
+
+    it('falls back to the exact ratio for a large search (#727)', () => {
+      const costs = Array.from({ length: 1000 }, (_, index) => 1000000000000n + BigInt(index));
+      const participants = createParticipants(
+        costs.map((_, index) =>
+          createMockUser(index + 1, `User ${index}`, `user${index}@example.com`),
+        ),
+        costs.map((cost) => -cost),
+      );
+      const splitShares = createSplitShares(participants, SplitType.SHARE, []);
+
+      calculateSplitShareBasedOnAmount(
+        costs.reduce((sum, cost) => sum + cost, 0n),
+        participants,
+        SplitType.SHARE,
+        splitShares,
+      );
+
+      expect(
+        participants.map((participant) => splitShares[participant.id]?.[SplitType.SHARE]),
+      ).toEqual(costs.map((cost) => cost * 100n));
+    });
+
     it('should calculate share values based on participant amounts', () => {
       const participants = createParticipants([user1, user2, user3], [-6000n, -3000n, -3000n]);
       const splitShares: Record<number, Record<SplitType, bigint | undefined>> = {};
@@ -625,10 +765,10 @@ describe('calculateSplitShareBasedOnAmount', () => {
 
       calculateSplitShareBasedOnAmount(12000n, participants, SplitType.SHARE, splitShares);
 
-      // Shares preserve the participant amounts instead of reducing to 2:1:1.
-      expect(splitShares[user1.id]![SplitType.SHARE]).toBe(600000n);
-      expect(splitShares[user2.id]![SplitType.SHARE]).toBe(300000n);
-      expect(splitShares[user3.id]![SplitType.SHARE]).toBe(300000n);
+      // Share weights are normalized to hundredths while preserving their ratio.
+      expect(splitShares[user1.id]![SplitType.SHARE]).toBe(200n);
+      expect(splitShares[user2.id]![SplitType.SHARE]).toBe(100n);
+      expect(splitShares[user3.id]![SplitType.SHARE]).toBe(100n);
     });
 
     it('should handle payer in share calculation', () => {
@@ -641,9 +781,9 @@ describe('calculateSplitShareBasedOnAmount', () => {
       calculateSplitShareBasedOnAmount(12000n, participants, SplitType.SHARE, splitShares, user1);
 
       // User1 is payer: paid 12000n but their amount is 6000n, so they owe 6000n.
-      expect(splitShares[user1.id]![SplitType.SHARE]).toBe(600000n);
-      expect(splitShares[user2.id]![SplitType.SHARE]).toBe(300000n);
-      expect(splitShares[user3.id]![SplitType.SHARE]).toBe(300000n);
+      expect(splitShares[user1.id]![SplitType.SHARE]).toBe(200n);
+      expect(splitShares[user2.id]![SplitType.SHARE]).toBe(100n);
+      expect(splitShares[user3.id]![SplitType.SHARE]).toBe(100n);
     });
 
     it('should preserve foreign-currency-like share values instead of reducing them', () => {
@@ -655,8 +795,8 @@ describe('calculateSplitShareBasedOnAmount', () => {
 
       calculateSplitShareBasedOnAmount(300n, participants, SplitType.SHARE, splitShares, user1);
 
-      expect(splitShares[user1.id]![SplitType.SHARE]).toBe(20000n);
-      expect(splitShares[user2.id]![SplitType.SHARE]).toBe(10000n);
+      expect(splitShares[user1.id]![SplitType.SHARE]).toBe(200n);
+      expect(splitShares[user2.id]![SplitType.SHARE]).toBe(100n);
     });
 
     it('should handle zero amount', () => {
@@ -1101,5 +1241,140 @@ describe('Function Reversibility Tests', () => {
       expect(reversedShares[user2.id]![SplitType.EQUAL]).toBe(0n);
       expect(reversedShares[user3.id]![SplitType.EQUAL]).toBe(0n);
     });
+  });
+});
+
+describe('useAddExpenseStore share preservation on reopen (#727)', () => {
+  const { actions } = useAddExpenseStore.getState();
+
+  beforeEach(() => {
+    actions.resetState();
+  });
+
+  it.each([
+    {
+      scenario: 'an evenly divisible 2:3 split',
+      amount: 10000n,
+      shares: [200n, 300n],
+      expectedShares: [200n, 300n],
+    },
+    {
+      scenario: 'the reported 77.93 expense split 2:3',
+      amount: 7793n,
+      shares: [200n, 300n],
+      expectedShares: [200n, 300n],
+    },
+    {
+      scenario: 'a 2:3 split requiring penny rounding',
+      amount: 10001n,
+      shares: [200n, 300n],
+      expectedShares: [200n, 300n],
+    },
+    {
+      scenario: 'a non-reduced 4:6 split',
+      amount: 10000n,
+      shares: [400n, 600n],
+      expectedShares: [200n, 300n],
+    },
+  ])('recovers $scenario on reopen', ({ amount, shares, expectedShares }) => {
+    actions.setCurrentUser(user1);
+    actions.setParticipants(createParticipants([user1, user2]));
+    actions.setExpenseDate(new Date('2024-01-01'));
+    actions.setAmount(amount);
+    actions.setSplitType(SplitType.SHARE);
+    [user1, user2].forEach((user, index) => {
+      actions.setSplitShare(SplitType.SHARE, user.id, shares[index] ?? 0n);
+    });
+
+    // Saving sends only monetary balances, not the entered share counts.
+    const state = useAddExpenseStore.getState();
+    const savedExpense = {
+      amount: state.amount,
+      splitType: state.splitType,
+      expenseDate: state.expenseDate,
+      participants: state.participants.map((participant) => ({
+        userId: participant.id,
+        amount: participant.amount!,
+      })),
+    };
+    expect(
+      savedExpense.participants.reduce((sum, participant) => sum + participant.amount, 0n),
+    ).toBe(0n);
+
+    // Leaving the page clears the draft. Reload in the same order as pages/add.tsx.
+    actions.resetState();
+    actions.setPaidBy(user1);
+    actions.setAmount(savedExpense.amount);
+    actions.setParticipants(
+      createParticipants(
+        savedExpense.participants.map(
+          (participant) => [user1, user2].find((user) => user.id === participant.userId)!,
+        ),
+        savedExpense.participants.map((participant) => participant.amount),
+      ),
+      savedExpense.splitType,
+    );
+    actions.setExpenseDate(savedExpense.expenseDate);
+
+    // Saving and reopening again should not cause the recovered ratio to drift.
+    Array.from({ length: 3 }).forEach(() => {
+      const reopened = useAddExpenseStore.getState();
+      expect(
+        reopened.participants.reduce((sum, participant) => sum + participant.amount!, 0n),
+      ).toBe(0n);
+      // SHARE inputs use hundredths: 200n and 300n display as 2 and 3 shares.
+      expect(
+        [user1, user2].map((user) => reopened.splitShares[user.id]?.[SplitType.SHARE]),
+      ).toEqual(expectedShares);
+      actions.setParticipants(reopened.participants, reopened.splitType);
+    });
+  });
+});
+
+// Regression test for #658: editing a negative expense must preserve the sign
+describe('useAddExpenseStore sign preservation on edit (#658)', () => {
+  const { toUIString } = getCurrencyHelpers({ locale: 'en-US', currency: 'USD' });
+  const { actions } = useAddExpenseStore.getState();
+
+  beforeEach(() => {
+    actions.resetState();
+  });
+
+  it('loads a negative expense with the minus sign visible in amountStr', () => {
+    actions.setAmount(-20000n);
+    actions.setAmountStr(toUIString(-20000n, true, true));
+
+    const state = useAddExpenseStore.getState();
+    expect(state.amountStr).toBe('-200');
+    expect(state.isNegative).toBe(true);
+    expect(state.amount).toBe(20000n);
+  });
+
+  it('preserves the sign when the user edits digits without removing the minus', () => {
+    actions.setAmount(-20000n);
+    actions.setAmountStr(toUIString(-20000n, true, true));
+
+    // Simulate the user changing -200 to -200.01 via the input
+    actions.setAmountStr('-200.01');
+    actions.setAmount(-20001n);
+
+    const state = useAddExpenseStore.getState();
+    expect(state.amountStr).toBe('-200.01');
+    expect(state.isNegative).toBe(true);
+    expect(state.amount).toBe(20001n);
+  });
+
+  it('flips the sign when the user deletes the minus and edits the value', () => {
+    actions.setAmount(-20000n);
+    actions.setAmountStr(toUIString(-20000n, true, true));
+
+    // Simulate the user deleting the minus and changing the value to 200.01
+    actions.setAmountStr('200.01');
+    actions.setAmount(20001n);
+
+    const state = useAddExpenseStore.getState();
+    expect(state.amountStr).toBe('200.01');
+    expect(state.isNegative).toBe(false);
+    expect(state.amount).toBe(20001n);
   });
 });

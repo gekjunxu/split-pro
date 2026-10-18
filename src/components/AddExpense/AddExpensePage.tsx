@@ -31,6 +31,7 @@ import { CurrencyConversion } from '../Friend/CurrencyConversion';
 import { BigMath, currencyConversion } from '~/utils/numbers';
 import { CurrencyConversionIcon } from '../ui/categoryIcons';
 import { useSession } from 'next-auth/react';
+import { isStringQueryParam } from '~/utils/queryParams';
 
 export const AddOrEditExpensePage: React.FC<{
   enableSendingInvites: boolean;
@@ -61,6 +62,7 @@ export const AddOrEditExpensePage: React.FC<{
   const transactionId = useAddExpenseStore((s) => s.transactionId);
   const cronExpression = useAddExpenseStore((s) => s.cronExpression);
   const multipleTransactions = useAddExpenseStore((s) => s.multipleTransactions);
+  const [previousCurrency, setPreviousCurrency] = React.useState<CurrencyCode | null>(null);
 
   const { t, displayName, generateSplitDescription, getCurrencyHelpersCached } =
     useTranslationWithUtils();
@@ -75,7 +77,6 @@ export const AddOrEditExpensePage: React.FC<{
     setCardId,
     clearOriginalExpense,
     resetState,
-    setSplitScreenOpen,
     setExpenseDate,
     setMultipleTransactions,
     setIsTransactionLoading,
@@ -100,7 +101,7 @@ export const AddOrEditExpensePage: React.FC<{
 
       updateProfile.mutate({ currency: newCurrency });
 
-      previousCurrencyRef.current = currency;
+      setPreviousCurrency(currency);
       setCurrency(newCurrency);
       clearOriginalExpense();
     },
@@ -117,7 +118,7 @@ export const AddOrEditExpensePage: React.FC<{
       if (bigIntValue !== undefined) {
         setAmount(bigIntValue);
       }
-      previousCurrencyRef.current = null;
+      setPreviousCurrency(null);
       clearOriginalExpense();
     },
     [clearOriginalExpense, setAmount, setAmountStr],
@@ -125,11 +126,6 @@ export const AddOrEditExpensePage: React.FC<{
 
   const addExpense = useCallback(async () => {
     if (!paidBy) {
-      return;
-    }
-
-    if (!isExpenseSettled) {
-      setSplitScreenOpen(true);
       return;
     }
 
@@ -244,10 +240,10 @@ export const AddOrEditExpensePage: React.FC<{
 
                 const { friendId, groupId } = router.query;
 
-                if (friendId && !groupId) {
-                  navPromise = () => router.push(`/balances/${friendId as string}/expenses/${id}`);
-                } else if (groupId) {
-                  navPromise = () => router.push(`/groups/${groupId as string}/expenses/${id}`);
+                if (isStringQueryParam(friendId) && friendId && !groupId) {
+                  navPromise = () => router.push(`/balances/${friendId}/expenses/${id}`);
+                } else if (isStringQueryParam(groupId) && groupId) {
+                  navPromise = () => router.push(`/groups/${groupId}/expenses/${id}`);
                 } else {
                   navPromise = () => router.push(`/expenses/${id}?keepAdding=1`);
                 }
@@ -256,16 +252,14 @@ export const AddOrEditExpensePage: React.FC<{
                   navPromise = async () => router.back();
                 }
 
+                navPromise().catch(console.error);
                 update((session: any) => ({
                   ...session,
                   user: {
                     ...(session?.user ?? {}),
                     currency: mutationCurrency,
                   },
-                }))
-                  .then(() => navPromise())
-                  .then(() => resetState())
-                  .catch(console.error);
+                })).catch(console.error);
               }
             }
           },
@@ -276,11 +270,10 @@ export const AddOrEditExpensePage: React.FC<{
       if (error instanceof Error) {
         toast.error(error.message);
       } else {
-        toast.error('An unexpected error occurred while submitting the expense.');
+        toast.error(t('errors.expense_submission_failed'));
       }
     }
   }, [
-    setSplitScreenOpen,
     description,
     currency,
     isNegative,
@@ -296,26 +289,25 @@ export const AddOrEditExpensePage: React.FC<{
     expenseDate,
     expenseId,
     router,
-    resetState,
     addExpenseMutation,
     apiUtils,
     group,
                         paidBy,
     splitType,
     fileKey,
-    isExpenseSettled,
     setMultipleTransactions,
     transactionId,
     setIsTransactionLoading,
     cronExpression,
     multipleTransactions,
     setSingleTransaction,
+    t,
     update,
   ]);
 
   const handleDescriptionChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      setDescription(e.target.value.toString() ?? '');
+      setDescription(e.target.value ?? '');
     },
     [setDescription],
   );
@@ -325,16 +317,13 @@ export const AddOrEditExpensePage: React.FC<{
     setMultipleTransactions([]);
   }, [resetState, setMultipleTransactions]);
 
-  const previousCurrencyRef = React.useRef<CurrencyCode | null>(null);
-
   const groupQuickCurrencies = React.useMemo(
     () => group?.frequentCurrencies.filter(isCurrencyCode) ?? [],
     [group?.frequentCurrencies],
   );
-
   const onConvertAmount: React.ComponentProps<typeof CurrencyConversion>['onSubmit'] = useCallback(
     ({ amount: absAmount, rate }) => {
-      if (!previousCurrencyRef.current) {
+      if (!previousCurrency) {
         return;
       }
 
@@ -343,12 +332,12 @@ export const AddOrEditExpensePage: React.FC<{
         currencyConversion({
           amount: absAmount,
           rate,
-          from: previousCurrencyRef.current,
+          from: previousCurrency,
           to: currency,
         });
       setAmount(targetAmount);
       setAmountStr(getCurrencyHelpersCached(currency).toUIString(targetAmount, false, true));
-      previousCurrencyRef.current = null;
+      setPreviousCurrency(null);
       clearOriginalExpense();
     },
     [clearOriginalExpense, setAmount, setAmountStr, currency, getCurrencyHelpersCached],
@@ -401,12 +390,7 @@ export const AddOrEditExpensePage: React.FC<{
   );
 
   const currencyConversionComponent = React.useMemo(() => {
-    if (
-      currency === previousCurrencyRef.current ||
-      previousCurrencyRef.current === null ||
-      !amount ||
-      0n === amount
-    ) {
+    if (currency === previousCurrency || previousCurrency === null || !amount || 0n === amount) {
       return null;
     }
 
@@ -414,7 +398,7 @@ export const AddOrEditExpensePage: React.FC<{
       <CurrencyConversion
         onSubmit={onConvertAmount}
         amount={amount}
-        currency={previousCurrencyRef.current}
+        currency={previousCurrency}
         editingTargetCurrency={currency}
       >
         <Button size="icon" variant="secondary" className="size-8">
@@ -422,7 +406,7 @@ export const AddOrEditExpensePage: React.FC<{
         </Button>
       </CurrencyConversion>
     );
-  }, [amount, currency, onConvertAmount]);
+  }, [amount, currency, onConvertAmount, previousCurrency]);
 
   const onBackButtonPress = useCallback(() => {
     router.back();
@@ -441,7 +425,11 @@ export const AddOrEditExpensePage: React.FC<{
           variant="ghost"
           className="text-primary px-0"
           disabled={
-            addExpenseMutation.isPending || !amount || '' === description || isFileUploading
+            addExpenseMutation.isPending ||
+            !amount ||
+            '' === description ||
+            isFileUploading ||
+            !isExpenseSettled
           }
           onClick={addExpense}
         >
@@ -500,8 +488,15 @@ export const AddOrEditExpensePage: React.FC<{
                 <div className="flex flex-col items-center justify-center text-sm text-gray-400 sm:mt-4 sm:flex-row">
                   <p>{t(`ui.expense.${isNegative ? 'received_by' : 'paid_by'}`)}</p>
                   <PayerSelectionForm>
-                    <Button variant="ghost" className="text-primary h-8 px-1.5 py-0 text-base">
-                      {displayName(paidBy, currentUser?.id, 'dativus')}
+                    <Button
+                      variant="ghost"
+                      className="text-primary h-8 max-w-full min-w-0 justify-start px-1.5 py-0 text-base sm:max-w-none"
+                    >
+                      <span className="max-w-full truncate">
+                        {paidBy?.id === currentUser?.id
+                          ? t(`ui.expense.${isNegative ? 'recipient' : 'payer'}.current_user`)
+                          : displayName(paidBy)}
+                      </span>
                     </Button>
                   </PayerSelectionForm>
                   <p>{t('ui.and')} </p>
@@ -513,6 +508,7 @@ export const AddOrEditExpensePage: React.FC<{
                         splitShares,
                         paidBy,
                         currentUser,
+                        isNegative,
                       )}
                     </Button>
                   </SplitExpenseForm>
@@ -558,7 +554,7 @@ export const AddOrEditExpensePage: React.FC<{
                       'size-6',
                     )}
                   />
-                  <span className="sr-only">Toggle recurring expense options</span>
+                  <span className="sr-only">{t('recurrence.toggle_options')}</span>
                 </Button>
               </RecurrenceInput>
             )}

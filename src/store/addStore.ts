@@ -4,6 +4,7 @@ import { create } from 'zustand';
 
 import { DEFAULT_CATEGORY } from '~/lib/category';
 import { type CurrencyCode } from '~/lib/currency';
+import { recoverPercentageWeights, recoverShareWeights } from '~/lib/shareSplit';
 import type { TransactionAddInputModel } from '~/types';
 import { shuffleArray } from '~/utils/array';
 import { BigMath } from '~/utils/numbers';
@@ -121,7 +122,7 @@ export const useAddExpenseStore = create<AddExpenseState>()((set) => ({
             ...(state.splitShares[userId] ?? initSplitShares()),
             [splitType]: share,
           },
-        } as SplitShares;
+        };
 
         return calculateParticipantSplit({ ...state, splitShares });
       }),
@@ -328,9 +329,7 @@ export function calculateParticipantSplit(
         ...p,
         amount: 0n === getSplitShare(p) ? 0n : amount / BigInt(totalParticipants),
       }));
-      canSplitScreenClosed = Boolean(
-        Object.values(splitShares).find((p) => 0n !== p[SplitType.EQUAL]),
-      );
+      canSplitScreenClosed = 0 < totalParticipants;
       break;
     case SplitType.PERCENTAGE:
       updatedParticipants = participants.map((p) => ({
@@ -338,7 +337,7 @@ export function calculateParticipantSplit(
         amount: ((getSplitShare(p) ?? 0n) * amount) / 10000n,
       }));
       canSplitScreenClosed =
-        0 === 100 - participants.reduce((acc, p) => acc + Number(getSplitShare(p) ?? 0n) / 100, 0);
+        10000n === participants.reduce((acc, p) => acc + (getSplitShare(p) ?? 0n), 0n);
       break;
     case SplitType.SHARE:
       const totalShare = participants.reduce((acc, p) => acc + Number(getSplitShare(p) ?? 0n), 0);
@@ -382,7 +381,10 @@ export function calculateParticipantSplit(
 
     if (canSplitScreenClosed) {
       let penniesLeft = updatedParticipants.reduce((acc, p) => acc + (p.amount ?? 0n), 0n);
-      const participantsToPick = updatedParticipants.filter((p) => p.amount);
+      const participantsToPick =
+        splitType === SplitType.EQUAL
+          ? updatedParticipants.filter((p) => p.id !== paidBy?.id && 0n !== getSplitShare(p))
+          : updatedParticipants.filter((p) => p.amount);
       const seed =
         cyrb128(
           `${participantsToPick
@@ -402,6 +404,14 @@ export function calculateParticipantSplit(
           i++;
         }
       }
+    }
+
+    if (
+      canSplitScreenClosed &&
+      1 < participants.length &&
+      updatedParticipants.every((p) => 0n === (p.amount ?? 0n))
+    ) {
+      canSplitScreenClosed = false;
     }
   }
 
@@ -429,26 +439,19 @@ export function calculateSplitShareBasedOnAmount(
       break;
 
     case SplitType.PERCENTAGE:
-      participants.forEach((p) => {
-        splitShares[p.id]![splitType] =
-          0n === amount
-            ? 0n
-            : paidBy?.id !== p.id
-              ? (BigMath.abs(p.amount ?? 0n) * 10000n) / amount
-              : (BigMath.abs(amount - (p.amount ?? 0n)) * 10000n) / amount;
-      });
-
-      break;
-
     case SplitType.SHARE:
-      participants.forEach((p) => {
-        const participantShareAmount =
-          p.id === paidBy?.id
-            ? BigMath.abs(amount - (p.amount ?? 0n))
-            : BigMath.abs(p.amount ?? 0n);
+      const costs = participants.map((p) =>
+        p.id === paidBy?.id ? BigMath.abs(amount - (p.amount ?? 0n)) : BigMath.abs(p.amount ?? 0n),
+      );
+      const shares =
+        0n === amount
+          ? costs.map(() => 0n)
+          : SplitType.PERCENTAGE === splitType
+            ? recoverPercentageWeights(costs)
+            : recoverShareWeights(costs);
 
-        splitShares[p.id]![splitType] =
-          0n === amount ? 0n : participantShareAmount * 100n;
+      participants.forEach((p, index) => {
+        splitShares[p.id]![splitType] = shares[index];
       });
 
       break;
@@ -466,7 +469,7 @@ export function calculateSplitShareBasedOnAmount(
     case SplitType.ADJUSTMENT:
       const minAmount = BigMath.min(
         ...participants
-          .filter(({ amount }) => 0n !== amount)
+          .filter(({ amount: participantAmount }) => 0n !== participantAmount)
           .map((p) =>
             p.id === paidBy?.id
               ? BigMath.abs(amount - (p.amount ?? 0n))

@@ -1,13 +1,14 @@
 import { memo, useCallback, useMemo } from 'react';
 
+import { CURRENCIES, type CurrencyCode, isCurrencyCode, parseCurrencyCode } from '~/lib/currency';
+
 import { useTranslationWithUtils } from '~/hooks/useTranslationWithUtils';
-import { CURRENCIES, type CurrencyCode, parseCurrencyCode } from '~/lib/currency';
 import { useCurrencyPreferenceStore } from '~/store/currencyPreferenceStore';
 
 import { GeneralPicker } from '../GeneralPicker';
 import { Button } from '../ui/button';
 
-function CurrencyPickerInner({
+const CurrencyPickerInner = ({
   className,
   currentCurrency,
   onCurrencyPick,
@@ -21,7 +22,7 @@ function CurrencyPickerInner({
   allowClear?: boolean;
   preferredCurrencies?: CurrencyCode[];
   triggerLabel?: string;
-}) {
+}) => {
   const { t, getCurrencyName } = useTranslationWithUtils(['currencies']);
   const { recentCurrencies, addToRecentCurrencies } = useCurrencyPreferenceStore();
 
@@ -63,7 +64,10 @@ function CurrencyPickerInner({
     const uniqueItems = [
       ...preferredCurrencyObjects,
       ...recentOnlyObjects,
-      ...baseItems.filter((c) => !prioritizedCodes.includes(c.code as CurrencyCode)),
+      ...baseItems.filter(
+        (currency) =>
+          !isCurrencyCode(currency.code) || !prioritizedCodes.includes(currency.code),
+      ),
     ];
     return uniqueItems;
   }, [
@@ -144,6 +148,6 @@ function CurrencyPickerInner({
       render={renderCurrencyItem}
     />
   );
-}
+};
 
 export const CurrencyPicker = memo(CurrencyPickerInner);

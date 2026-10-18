@@ -44,6 +44,9 @@ COPY --from=base /app/prisma ./prisma
 COPY --from=base /app/node_modules ./node_modules
 COPY --from=base /app/package.json ./package.json
 
+# Prepare persistent receipt storage for non-root container users.
+RUN mkdir -p /app/uploads && chown node:node /app/uploads
+
 # set this so it throws error where starting server
 ENV SKIP_ENV_VALIDATION="false"
 

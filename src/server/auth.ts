@@ -9,8 +9,10 @@ import KeycloakProvider from 'next-auth/providers/keycloak';
 
 import { env } from '~/env';
 import { db } from '~/server/db';
+import { sanitiseAdapterAccount } from '~/server/authAccount';
+import { parseEnvBoolean } from '~/utils/env';
 
-import { sendSignUpEmail } from './mailer';
+import { mailServerConfig, sendSignUpEmail } from './mailer';
 import { getBaseUrl } from '~/utils/api';
 import type { OAuthConfig } from 'next-auth/providers/oauth';
 
@@ -35,6 +37,7 @@ declare module 'next-auth' {
     };
   }
 
+  // @ts-ignore
   interface User {
     id: number;
     name: string;
@@ -78,27 +81,11 @@ const SplitProPrismaAdapter = (...args: Parameters<typeof PrismaAdapter>): Adapt
         throw new Error('Adapter is missing the linkAccount method.');
       }
 
-      // Keycloak and Gitlab provide some non-standard fields that do not exist in the prisma schema.
+      // OIDC providers can provide non-standard fields that do not exist in the prisma schema.
       // We strip them out before passing them on to the original adapter.
-      if (account.provider === 'keycloak') {
-        const {
-          'not-before-policy': _notBeforePolicy,
-          refresh_expires_in: _refresh_expires_in,
-          ...standardAccountData
-        } = account as AdapterAccount & Record<string, unknown>;
-
-        return originalLinkAccount(standardAccountData as AdapterAccount);
-      } else if (account.provider === 'gitlab') {
-        const { created_at: _createdAt, ...standardAccountData } = account as AdapterAccount &
-          Record<string, unknown>;
-
-        return originalLinkAccount(standardAccountData as AdapterAccount);
-      }
-
-      // Default: proceed directly
-      return originalLinkAccount(account);
+      return originalLinkAccount(sanitiseAdapterAccount(account));
     },
-  } as Adapter;
+  };
 };
 
 /**
@@ -208,17 +195,7 @@ function getProviders() {
     providersList.push(
       EmailProvider({
         from: env.FROM_EMAIL,
-        server: {
-          host: env.EMAIL_SERVER_HOST,
-          port: parseInt(env.EMAIL_SERVER_PORT ?? ''),
-          auth: {
-            user: env.EMAIL_SERVER_USER,
-            pass: env.EMAIL_SERVER_PASSWORD,
-          },
-          tls: {
-            rejectUnauthorized: env.EMAIL_TLS_REJECT_UNAUTHORIZED,
-          },
-        },
+        server: mailServerConfig,
         async sendVerificationRequest({ identifier: email, url, token }) {
           const result = await sendSignUpEmail(email, url, token);
           if (!result) {
@@ -271,6 +248,7 @@ function getProviders() {
         // A record that has an id, a name, an email, and an image.
         //
         // To work around this, we case to unknown and then `User`.
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion
         return {
           id: profile.sub,
           name: profile.name,
@@ -298,8 +276,16 @@ function getProviders() {
  */
 export function validateAuthEnv() {
   console.log('Validating auth env');
-  if (!process.env.SKIP_ENV_VALIDATION) {
+  if (!parseEnvBoolean(process.env.SKIP_ENV_VALIDATION)) {
     const providers = getProviders();
+    const oauthProviders = providers.filter((provider) => 'oauth' === provider.type);
+
+    if (env.OAUTH_AUTO_REDIRECT && (1 !== oauthProviders.length || 1 !== providers.length)) {
+      console.warn(
+        'OAUTH_AUTO_REDIRECT is enabled, but automatic redirection will not happen until exactly one OAuth provider and no other authentication providers are configured.',
+      );
+    }
+
     if (0 === providers.length) {
       throw new Error(
         'No authentication providers are configured, at least one is required. Learn more here: https://github.com/oss-apps/split-pro?tab=readme-ov-file#setting-up-the-environment',

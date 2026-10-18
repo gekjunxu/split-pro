@@ -59,7 +59,8 @@ const Home: NextPage<{
   feedbackEmail: string;
   providers: ClientSafeProvider[];
   callbackUrl?: string;
-}> = ({ error, providers: serverProviders, feedbackEmail, callbackUrl }) => {
+  oauthAutoRedirect: boolean;
+}> = ({ error, providers: serverProviders, feedbackEmail, callbackUrl, oauthAutoRedirect }) => {
   const { t } = useTranslation();
   const [emailStatus, setEmailStatus] = useState<'idle' | 'sending' | 'success'>('idle');
   const [showVerificationStep, setShowVerificationStep] = useState(false);
@@ -88,8 +89,8 @@ const Home: NextPage<{
         } else {
           throw new Error('No providers returned from getProviders()');
         }
-      } catch (error) {
-        console.error('Error fetching providers client-side:', error);
+      } catch (providerError) {
+        console.error('Error fetching providers client-side:', providerError);
         toast.error(t('errors.no_providers'), { duration: 8000 });
       } finally {
         setIsLoadingProviders(false);
@@ -104,11 +105,34 @@ const Home: NextPage<{
       } else if ('SessionRequired' === error) {
         return;
       } else {
-        toast.error(t('errors.signin_error') + error);
+        toast.error(t('errors.signin_error', { error }));
         console.error('Error during sign-in:', error);
       }
     }
   }, [error, t]);
+
+  useEffect(() => {
+    const oauthProviders = providers.filter((provider) => 'oauth' === provider.type);
+    // SessionRequired indicates an unauthenticated route redirect, not a failed sign-in.
+    const hasSignInError = Boolean(error && 'SessionRequired' !== error);
+    const shouldAutoRedirect =
+      oauthAutoRedirect && !hasSignInError && 1 === oauthProviders.length && 1 === providers.length;
+
+    const oauthProvider = oauthProviders[0];
+    if (shouldAutoRedirect && oauthProvider && !showVerificationStep && !isLoadingProviders) {
+      void signIn(oauthProvider.id, { callbackUrl }).catch(() => {
+        toast.error(t('errors.signin_failed'));
+      });
+    }
+  }, [
+    oauthAutoRedirect,
+    error,
+    showVerificationStep,
+    providers,
+    isLoadingProviders,
+    callbackUrl,
+    t,
+  ]);
 
   const onEmailSubmit = useCallback(async () => {
     setEmailStatus('sending');
@@ -136,15 +160,15 @@ const Home: NextPage<{
     [callbackUrl],
   );
 
-  const field = useCallback(
-    ({ field }: any) => (
+  const renderField = useCallback(
+    ({ field: formField }: any) => (
       <FormItem>
         <FormControl>
           <Input
             placeholder={t('auth.email_placeholder')}
             className="w-[300px] text-lg"
             type="email"
-            {...field}
+            {...formField}
           />
         </FormControl>
         <FormDescription />
@@ -228,7 +252,11 @@ const Home: NextPage<{
                           onSubmit={emailForm.handleSubmit(onEmailSubmit)}
                           className="mt-6 space-y-8"
                         >
-                          <FormField control={emailForm.control} name="email" render={field} />
+                          <FormField
+                            control={emailForm.control}
+                            name="email"
+                            render={renderField}
+                          />
                           <Button
                             className="mt-6 w-[300px] bg-white hover:bg-gray-100 focus:bg-gray-100"
                             type="submit"
@@ -293,6 +321,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
       feedbackEmail: env.FEEDBACK_EMAIL ?? '',
       providers: Object.values(providers ?? {}),
       callbackUrl: callbackUrl && !Array.isArray(callbackUrl) ? callbackUrl : '',
+      oauthAutoRedirect: env.OAUTH_AUTO_REDIRECT,
     },
   };
 };
