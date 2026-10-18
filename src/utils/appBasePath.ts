@@ -31,3 +31,9 @@ export const withAppBasePath = (url: string, basePath = process.env.NEXT_PUBLIC_
 
   return `${normalizedBasePath}${normalizedPathname}${suffix}`;
 };
+
+export const getAppUrl = (
+  path: string,
+  origin: string,
+  basePath = process.env.NEXT_PUBLIC_APP_BASE_PATH,
+) => new URL(withAppBasePath(path, basePath), origin).toString();

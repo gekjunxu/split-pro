@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useTranslation } from 'next-i18next';
 
 import { Button } from '~/components/ui/button';
+import { getAppUrl } from '~/utils/appBasePath';
 
 import AddMembers from './AddMembers';
 
@@ -18,7 +19,7 @@ const NoMembers: React.FC<NoMembersProps> = ({ group, enableSendingInvites }) =>
   const isArchived = !!group.archivedAt;
 
   async function copyToClipboard() {
-    const inviteLink = `${window.location.origin}/join-group?groupId=${group.publicId}`;
+    const inviteLink = getAppUrl(`/join-group?groupId=${group.publicId}`, window.location.origin);
     await navigator.clipboard.writeText(inviteLink);
     setIsCopied(true);
     setTimeout(() => {

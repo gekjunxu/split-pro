@@ -17,6 +17,7 @@ import { withI18nStaticProps } from '~/utils/i18n/server';
 import { cn } from '~/lib/utils';
 import { isCurrencyCode } from '~/lib/currency';
 import { useCurrencyPreferenceStore } from '~/store/currencyPreferenceStore';
+import { getAppUrl } from '~/utils/appBasePath';
 
 const BalancePage: NextPageWithUser = ({ user }) => {
   const { t } = useTranslationWithUtils();
@@ -46,7 +47,7 @@ const BalancePage: NextPageWithUser = ({ user }) => {
         .share({
           title: t('meta.application_name'),
           text: t('ui.share_text'),
-          url: window.location.origin,
+          url: getAppUrl('/', window.location.origin),
         })
         .then(() => console.info('Successful share'))
         .catch((error) => console.error('Error sharing', error));

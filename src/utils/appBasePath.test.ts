@@ -1,4 +1,4 @@
-import { normalizeAppBasePath, withAppBasePath } from './appBasePath';
+import { getAppUrl, normalizeAppBasePath, withAppBasePath } from './appBasePath';
 
 describe('normalizeAppBasePath', () => {
   it.each([
@@ -42,6 +42,29 @@ describe('withAppBasePath', () => {
   it('preserves query strings when prefixing an API URL', () => {
     expect(withAppBasePath('/api/locale?locale=fr', '/splitprointegration')).toBe(
       '/splitprointegration/api/locale?locale=fr',
+    );
+  });
+});
+
+describe('getAppUrl', () => {
+  it('keeps preview invite URLs under the app base path', () => {
+    expect(
+      getAppUrl(
+        '/join-group?groupId=group-public-id',
+        'https://prodesk.tail960ba6.ts.net',
+        '/splitprointegration',
+      ),
+    ).toBe(
+      'https://prodesk.tail960ba6.ts.net/splitprointegration/join-group?groupId=group-public-id',
+    );
+  });
+
+  it('keeps shared app URLs rooted in the configured deployment', () => {
+    expect(getAppUrl('/', 'https://prodesk.tail960ba6.ts.net', '/splitprointegration')).toBe(
+      'https://prodesk.tail960ba6.ts.net/splitprointegration/',
+    );
+    expect(getAppUrl('/', 'https://prodesk.tail960ba6.ts.net', '')).toBe(
+      'https://prodesk.tail960ba6.ts.net/',
     );
   });
 });

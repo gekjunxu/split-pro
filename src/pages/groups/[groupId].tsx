@@ -45,6 +45,7 @@ import { type NextPageWithUser } from '~/types';
 import { api } from '~/utils/api';
 import { customServerSideTranslations } from '~/utils/i18n/server';
 import { useCurrencyPreferenceStore } from '~/store/currencyPreferenceStore';
+import { getAppUrl } from '~/utils/appBasePath';
 import { isStringQueryParam } from '~/utils/queryParams';
 
 const BalancePage: NextPageWithUser<{
@@ -95,7 +96,10 @@ const BalancePage: NextPageWithUser<{
     if (!groupDetailQuery.data) {
       return;
     }
-    const inviteLink = `${window.location.origin}/join-group?groupId=${groupDetailQuery.data.publicId}`;
+    const inviteLink = getAppUrl(
+      `/join-group?groupId=${groupDetailQuery.data.publicId}`,
+      window.location.origin,
+    );
 
     if (navigator.share) {
       navigator
