@@ -604,14 +604,17 @@ export const loadAddExpenseDraft = (scopeKey: string): AddExpenseDraft | null =>
     ) {
       return null;
     }
-    const rawOriginalCurrency =
-      'string' === typeof record.originalCurrency && '' !== record.originalCurrency
-        ? record.originalCurrency
-        : undefined;
-    if (rawOriginalCurrency && !isCurrencyCode(rawOriginalCurrency)) {
-      return null;
+
+    let originalCurrency: CurrencyCode | undefined;
+    if ('string' === typeof record.originalCurrency && '' !== record.originalCurrency) {
+      if (!isCurrencyCode(record.originalCurrency)) {
+        return null;
+      }
+      originalCurrency = record.originalCurrency;
     }
-    const originalCurrency: CurrencyCode | undefined = rawOriginalCurrency;
+
+    const splitTypeValues = Object.values(SplitType);
+    const splitType = splitTypeValues.find((val) => val === record.splitType) ?? SplitType.EQUAL;
 
     return {
       scopeKey,
@@ -628,8 +631,17 @@ export const loadAddExpenseDraft = (scopeKey: string): AddExpenseDraft | null =>
       conversionRate: 'number' === typeof record.conversionRate ? record.conversionRate : undefined,
       cardId:
         'number' === typeof record.cardId || null === record.cardId ? record.cardId : undefined,
-      expenseDate:
-        'string' === typeof record.expenseDate ? record.expenseDate : new Date().toISOString(),
+      splitType,
+      expenseDateIso:
+        'string' === typeof record.expenseDateIso
+          ? record.expenseDateIso
+          : new Date().toISOString(),
+      cronExpression: 'string' === typeof record.cronExpression ? record.cronExpression : '',
+      paidById: 'number' === typeof record.paidById ? record.paidById : undefined,
+      groupId: 'number' === typeof record.groupId ? record.groupId : undefined,
+      participantIds: Array.isArray(record.participantIds)
+        ? record.participantIds.filter((id): id is number => 'number' === typeof id)
+        : undefined,
     };
   } catch {
     return null;
