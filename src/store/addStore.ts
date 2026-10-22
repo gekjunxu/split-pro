@@ -3,7 +3,7 @@ import Router from 'next/router';
 import { create } from 'zustand';
 
 import { DEFAULT_CATEGORY } from '~/lib/category';
-import { type CurrencyCode } from '~/lib/currency';
+import { type CurrencyCode, isCurrencyCode } from '~/lib/currency';
 import { recoverPercentageWeights, recoverShareWeights } from '~/lib/shareSplit';
 import type { TransactionAddInputModel } from '~/types';
 import { shuffleArray } from '~/utils/array';
@@ -25,6 +25,7 @@ export interface AddExpenseState {
   description: string;
   currency: CurrencyCode;
   originalAmount?: bigint;
+  originalAmountStr: string;
   originalCurrency?: CurrencyCode;
   conversionRate?: number;
   cardId?: number | null;
@@ -55,9 +56,11 @@ export interface AddExpenseState {
     setCurrency: (currency: CurrencyCode) => void;
     setOriginalExpense: (data?: {
       originalAmount?: bigint;
+      originalAmountStr?: string;
       originalCurrency?: CurrencyCode;
       conversionRate?: number;
     }) => void;
+    setOriginalAmountStr: (originalAmountStr: string) => void;
     setCardId: (cardId?: number | null) => void;
     clearOriginalExpense: () => void;
     setCategory: (category: string) => void;
@@ -93,6 +96,7 @@ export const useAddExpenseStore = create<AddExpenseState>()((set) => ({
     [SplitType.SETTLEMENT]: {},
   },
   currency: 'USD',
+  originalAmountStr: '',
   category: DEFAULT_CATEGORY,
   nameOrEmail: '',
   description: '',
@@ -215,14 +219,18 @@ export const useAddExpenseStore = create<AddExpenseState>()((set) => ({
     },
     setCurrency: (currency) => set({ currency }),
     setOriginalExpense: (data) =>
-      set({
+      set((s) => ({
         originalAmount: data?.originalAmount,
+        originalAmountStr:
+          undefined !== data?.originalAmountStr ? data.originalAmountStr : s.originalAmountStr,
         originalCurrency: data?.originalCurrency,
         conversionRate: data?.conversionRate,
-      }),
+      })),
+    setOriginalAmountStr: (originalAmountStr) => set({ originalAmountStr }),
     clearOriginalExpense: () =>
       set({
         originalAmount: undefined,
+        originalAmountStr: '',
         originalCurrency: undefined,
         conversionRate: undefined,
       }),
@@ -255,6 +263,7 @@ export const useAddExpenseStore = create<AddExpenseState>()((set) => ({
         fileKey: '',
         category: DEFAULT_CATEGORY,
         originalAmount: undefined,
+        originalAmountStr: '',
         originalCurrency: undefined,
         conversionRate: undefined,
         cardId: undefined,
@@ -288,6 +297,7 @@ export const useAddExpenseStore = create<AddExpenseState>()((set) => ({
           description: singleTransaction.description,
           currency: singleTransaction.currency,
           originalAmount: undefined,
+          originalAmountStr: '',
           originalCurrency: undefined,
           conversionRate: undefined,
           cardId: undefined,
@@ -487,3 +497,159 @@ export function calculateSplitShareBasedOnAmount(
       break;
   }
 }
+
+const ADD_EXPENSE_DRAFT_KEY_PREFIX = 'splitpro:add-expense-draft:';
+
+export interface AddExpenseDraft {
+  scopeKey: string;
+  description: string;
+  currency: CurrencyCode;
+  amount: string;
+  amountStr: string;
+  isNegative: boolean;
+  originalAmount?: string;
+  originalAmountStr: string;
+  originalCurrency?: CurrencyCode;
+  conversionRate?: number;
+  cardId?: number | null;
+  category: string;
+  splitType: SplitType;
+  expenseDateIso: string;
+  cronExpression: string;
+  paidById?: number;
+  groupId?: number;
+  participantIds?: number[];
+}
+
+export const getAddExpenseDraftScopeKey = (params: {
+  groupId?: number | string;
+  friendId?: number | string;
+  expenseId?: string;
+}) => {
+  if (params.expenseId) {
+    return '';
+  }
+  const gid = params.groupId ? String(params.groupId) : '';
+  const fid = params.friendId ? String(params.friendId) : '';
+  return `${ADD_EXPENSE_DRAFT_KEY_PREFIX}g=${gid}&f=${fid}`;
+};
+
+export const saveAddExpenseDraft = (scopeKey: string, state: AddExpenseState) => {
+  if ('undefined' === typeof window || !scopeKey) {
+    return;
+  }
+
+  try {
+    const hasContent =
+      0n !== state.amount ||
+      '' !== state.amountStr ||
+      '' !== state.description ||
+      undefined !== state.originalCurrency ||
+      0n !== (state.originalAmount ?? 0n) ||
+      '' !== state.originalAmountStr ||
+      undefined !== state.cardId ||
+      DEFAULT_CATEGORY !== state.category;
+
+    if (!hasContent) {
+      window.sessionStorage.removeItem(scopeKey);
+      return;
+    }
+
+    const draft: AddExpenseDraft = {
+      scopeKey,
+      description: state.description,
+      currency: state.currency,
+      amount: state.amount.toString(),
+      amountStr: state.amountStr,
+      isNegative: state.isNegative,
+      originalAmount: state.originalAmount?.toString(),
+      originalAmountStr: state.originalAmountStr,
+      originalCurrency: state.originalCurrency,
+      conversionRate: state.conversionRate,
+      cardId: state.cardId,
+      category: state.category,
+      splitType: state.splitType,
+      expenseDateIso: state.expenseDate.toISOString(),
+      cronExpression: state.cronExpression,
+      paidById: state.paidBy?.id,
+      groupId: state.group?.id,
+      participantIds: state.participants.map((p) => p.id),
+    };
+
+    window.sessionStorage.setItem(scopeKey, JSON.stringify(draft));
+  } catch {
+    // Ignore storage quota or private mode errors
+  }
+};
+
+export const loadAddExpenseDraft = (scopeKey: string): AddExpenseDraft | null => {
+  if ('undefined' === typeof window || !scopeKey) {
+    return null;
+  }
+
+  try {
+    const raw = window.sessionStorage.getItem(scopeKey);
+    if (!raw) {
+      return null;
+    }
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || 'object' !== typeof parsed) {
+      return null;
+    }
+    const record: Record<string, unknown> = Object.fromEntries(Object.entries(parsed));
+    if (record.scopeKey !== scopeKey || !isCurrencyCode(record.currency)) {
+      return null;
+    }
+    const originalCurrency =
+      'string' === typeof record.originalCurrency && '' !== record.originalCurrency
+        ? record.originalCurrency
+        : undefined;
+    if (originalCurrency && !isCurrencyCode(originalCurrency)) {
+      return null;
+    }
+
+    return {
+      scopeKey,
+      amount: 'string' === typeof record.amount ? record.amount : '0',
+      amountStr: 'string' === typeof record.amountStr ? record.amountStr : '',
+      isNegative: Boolean(record.isNegative),
+      currency: record.currency,
+      category: 'string' === typeof record.category ? record.category : DEFAULT_CATEGORY,
+      description: 'string' === typeof record.description ? record.description : '',
+      originalAmount: 'string' === typeof record.originalAmount ? record.originalAmount : undefined,
+      originalAmountStr:
+        'string' === typeof record.originalAmountStr ? record.originalAmountStr : undefined,
+      originalCurrency,
+      conversionRate: 'number' === typeof record.conversionRate ? record.conversionRate : undefined,
+      cardId:
+        'number' === typeof record.cardId || null === record.cardId ? record.cardId : undefined,
+      expenseDate:
+        'string' === typeof record.expenseDate ? record.expenseDate : new Date().toISOString(),
+    };
+  } catch {
+    return null;
+  }
+};
+
+export const clearAddExpenseDraft = (scopeKey?: string) => {
+  if ('undefined' === typeof window) {
+    return;
+  }
+
+  try {
+    if (scopeKey) {
+      window.sessionStorage.removeItem(scopeKey);
+      return;
+    }
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < window.sessionStorage.length; i += 1) {
+      const k = window.sessionStorage.key(i);
+      if (k?.startsWith(ADD_EXPENSE_DRAFT_KEY_PREFIX)) {
+        keysToRemove.push(k);
+      }
+    }
+    keysToRemove.forEach((k) => window.sessionStorage.removeItem(k));
+  } catch {
+    // Ignore storage errors
+  }
+};

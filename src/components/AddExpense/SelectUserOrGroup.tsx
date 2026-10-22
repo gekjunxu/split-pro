@@ -11,6 +11,7 @@ import { z } from 'zod';
 import { useAddExpenseStore } from '~/store/addStore';
 import { api } from '~/utils/api';
 import { withAppBasePath } from '~/utils/appBasePath';
+import { isCurrencyCode } from '~/lib/currency';
 import { deserializeDefaultSplit } from '~/lib/defaultSplit';
 import { getInviteErrorToastKey, isInviteEmailSendFailed } from '~/lib/error/invite';
 
@@ -32,8 +33,14 @@ export const SelectUserOrGroup: React.FC<{
   const nameOrEmail = useAddExpenseStore((s) => s.nameOrEmail);
   const participants = useAddExpenseStore((s) => s.participants);
   const group = useAddExpenseStore((s) => s.group);
-  const { addOrUpdateParticipant, removeParticipant, setNameOrEmail, setGroup, setParticipants } =
-    useAddExpenseStore((s) => s.actions);
+  const {
+    addOrUpdateParticipant,
+    removeParticipant,
+    setNameOrEmail,
+    setGroup,
+    setParticipants,
+    setCurrency,
+  } = useAddExpenseStore((s) => s.actions);
 
   const friendsQuery = api.user.getFriends.useQuery();
   const groupsQuery = api.group.getAllGroups.useQuery();
@@ -124,6 +131,9 @@ export const SelectUserOrGroup: React.FC<{
   const onGroupSelect = useCallback(
     (selectedGroup: SelectableGroup) => {
       setGroup(selectedGroup);
+      if (isCurrencyCode(selectedGroup.defaultCurrency)) {
+        setCurrency(selectedGroup.defaultCurrency);
+      }
       const { currentUser } = useAddExpenseStore.getState();
       if (currentUser) {
         setParticipants([
@@ -139,7 +149,7 @@ export const SelectUserOrGroup: React.FC<{
       }
       setNameOrEmail('');
     },
-    [setGroup, setParticipants, setNameOrEmail],
+    [setGroup, setCurrency, setParticipants, setNameOrEmail],
   );
 
   const handleAddEmailClickTrue = useCallback(() => onAddEmailClick(true), [onAddEmailClick]);

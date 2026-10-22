@@ -100,4 +100,47 @@ describe('calculateCardAnalytics', () => {
     expect(analytics.foreignSpendingByCurrency).toEqual([]);
     expect(analytics.averageRatesByCurrency).toEqual([]);
   });
+
+  it('includes dayKey, paidAmount, and settlementAmount in rateHistory for same-day and multi-day transactions', () => {
+    const analytics = calculateCardAnalytics([
+      expense({
+        id: 'txn-2',
+        name: 'Night Market',
+        amount: 2110n,
+        originalAmount: 50000n,
+        originalCurrency: 'TWD',
+        conversionRate: 0.0422,
+        expenseDate: new Date('2026-10-22T00:00:00.000Z'),
+      }),
+      expense({
+        id: 'txn-1',
+        name: 'Beef Noodles',
+        amount: 1475n,
+        originalAmount: 35000n,
+        originalCurrency: 'TWD',
+        conversionRate: 0.04214285,
+        expenseDate: new Date('2026-10-22T00:00:00.000Z'),
+      }),
+    ]);
+
+    expect(analytics.rateHistory).toHaveLength(2);
+    expect(analytics.rateHistory[0]).toMatchObject({
+      id: 'txn-1',
+      name: 'Beef Noodles',
+      currency: 'TWD',
+      settlementCurrency: 'SGD',
+      dayKey: '2026-10-22',
+      paidAmount: 35000n,
+      settlementAmount: 1475n,
+    });
+    expect(analytics.rateHistory[1]).toMatchObject({
+      id: 'txn-2',
+      name: 'Night Market',
+      currency: 'TWD',
+      settlementCurrency: 'SGD',
+      dayKey: '2026-10-22',
+      paidAmount: 50000n,
+      settlementAmount: 2110n,
+    });
+  });
 });

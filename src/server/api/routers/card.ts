@@ -114,6 +114,8 @@ export const cardRouter = createTRPCRouter({
         },
       },
       select: {
+        id: true,
+        name: true,
         amount: true,
         originalAmount: true,
         originalCurrency: true,
@@ -128,6 +130,7 @@ export const cardRouter = createTRPCRouter({
         },
         expenseDate: true,
       },
+      orderBy: [{ expenseDate: 'asc' }, { id: 'asc' }],
     });
 
     return calculateCardAnalytics(expenses);

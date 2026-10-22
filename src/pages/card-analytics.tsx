@@ -1,27 +1,35 @@
 import { BarChart3, TrendingUp, WalletCards } from 'lucide-react';
 import Head from 'next/head';
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 
 import MainLayout from '~/components/Layout/MainLayout';
+import { Button } from '~/components/ui/button';
 import { useTranslationWithUtils } from '~/hooks/useTranslationWithUtils';
+import { type CardRateHistoryItem } from '~/lib/cardAnalytics';
 import { isCurrencyCode } from '~/lib/currency';
-import { formatConversionRate } from '~/lib/originalExpense';
+import { formatDisplayRate } from '~/lib/originalExpense';
+import { cn } from '~/lib/utils';
 import { type NextPageWithUser } from '~/types';
 import { api } from '~/utils/api';
 import { withI18nStaticProps } from '~/utils/i18n/server';
+
+type RangeZoom = 'all' | '7d' | '1d';
 
 const CardAnalyticsPage: NextPageWithUser = () => {
   const { t, getCurrencyHelpersCached, toUIDate } = useTranslationWithUtils();
   const analyticsQuery = api.card.analytics.useQuery();
   const analytics = analyticsQuery.data;
 
-  const formatAmount = (currency: string, amount: bigint) => {
-    if (!isCurrencyCode(currency)) {
-      return `${currency} ${amount.toString()}`;
-    }
+  const formatAmount = React.useCallback(
+    (currency: string, amount: bigint) => {
+      if (!isCurrencyCode(currency)) {
+        return `${currency} ${amount.toString()}`;
+      }
 
-    return getCurrencyHelpersCached(currency).toUIString(amount);
-  };
+      return getCurrencyHelpersCached(currency).toUIString(amount);
+    },
+    [getCurrencyHelpersCached],
+  );
 
   return (
     <>
@@ -52,7 +60,7 @@ const CardAnalyticsPage: NextPageWithUser = () => {
                 <Metric
                   key={insight.currency}
                   label={t('cards.analytics.best_average_rate', { currency: insight.currency })}
-                  value={`${insight.cardName} ${formatConversionRate(insight.averageRate)}`}
+                  value={`${insight.cardName} (${formatDisplayRate(insight.averageRate)})`}
                 />
               ))}
               {!analytics.insights.mostUsedCard &&
@@ -112,7 +120,7 @@ const CardAnalyticsPage: NextPageWithUser = () => {
                     <Metric
                       key={entry.cardId}
                       label={entry.cardName}
-                      value={`${formatConversionRate(entry.averageRate)} (${entry.count})`}
+                      value={`${formatDisplayRate(entry.averageRate)} (${entry.count})`}
                     />
                   ))}
                 </div>
@@ -126,6 +134,8 @@ const CardAnalyticsPage: NextPageWithUser = () => {
               <RateTrendGraph
                 history={analytics.rateHistory}
                 formatDate={(date) => toUIDate(date, { year: true })}
+                formatShortDate={(date) => toUIDate(date)}
+                formatAmount={formatAmount}
               />
             </Section>
           </div>
@@ -156,97 +166,396 @@ const Metric: React.FC<{ label: string; value: string }> = ({ label, value }) =>
   </div>
 );
 
+interface RateSeriesEntry {
+  cardId: number;
+  cardName: string;
+  currency: string;
+  settlementCurrency: string;
+  points: CardRateHistoryItem[];
+}
+
 const RateTrendGraph: React.FC<{
-  history: { currency: string; cardId: number; cardName: string; date: Date; rate: number }[];
+  history: CardRateHistoryItem[];
   formatDate: (date: Date) => string;
-}> = ({ history, formatDate }) => {
-  const series = React.useMemo(() => {
-    const grouped = history.reduce<
-      Record<string, { cardName: string; currency: string; points: { date: Date; rate: number }[] }>
-    >((acc, point) => {
-      const key = `${point.currency}:${point.cardId}`;
+  formatShortDate: (date: Date) => string;
+  formatAmount: (currency: string, amount: bigint) => string;
+}> = ({ history, formatDate, formatShortDate, formatAmount }) => {
+  const { t } = useTranslationWithUtils();
+
+  const series = useMemo(() => {
+    const grouped = history.reduce<Record<string, RateSeriesEntry>>((acc, point) => {
+      const key = `${point.currency}:${point.settlementCurrency}:${point.cardId}`;
       acc[key] ??= {
+        cardId: point.cardId,
         cardName: point.cardName,
         currency: point.currency,
+        settlementCurrency: point.settlementCurrency,
         points: [],
       };
-      acc[key].points.push({ date: point.date, rate: point.rate });
+      acc[key].points.push(point);
       return acc;
     }, {});
 
-    return Object.values(grouped).filter((entry) => entry.points.length >= 2);
+    return Object.values(grouped).filter((entry) => 1 <= entry.points.length);
   }, [history]);
 
-  const firstSeries = series[0];
-  if (!firstSeries) {
-    return <p className="text-sm text-gray-500">More rate history is needed for a graph.</p>;
+  if (0 === series.length) {
+    return <p className="text-sm text-gray-500">{t('cards.analytics.not_enough_data')}</p>;
   }
 
   return (
-    <div className="grid gap-3">
+    <div className="grid gap-4">
       {series.map((entry) => (
         <SingleRateTrend
-          key={`${entry.currency}-${entry.cardName}`}
+          key={`${entry.currency}-${entry.settlementCurrency}-${entry.cardId}`}
           entry={entry}
           formatDate={formatDate}
+          formatShortDate={formatShortDate}
+          formatAmount={formatAmount}
         />
       ))}
     </div>
   );
 };
 
+interface DayBucket {
+  dayKey: string;
+  date: Date;
+  points: CardRateHistoryItem[];
+  averageRate: number;
+}
+
 const SingleRateTrend: React.FC<{
-  entry: { cardName: string; currency: string; points: { date: Date; rate: number }[] };
+  entry: RateSeriesEntry;
   formatDate: (date: Date) => string;
-}> = ({ entry, formatDate }) => {
-  const width = 320;
-  const height = 140;
-  const padding = 20;
-  const points = entry.points.toSorted((a, b) => a.date.getTime() - b.date.getTime());
-  const minTime = points[0]!.date.getTime();
-  const maxTime = points[points.length - 1]!.date.getTime();
-  const rates = points.map((point) => point.rate);
-  const minRate = Math.min(...rates);
-  const maxRate = Math.max(...rates);
-  const timeSpan = Math.max(maxTime - minTime, 1);
-  const rateSpan = Math.max(maxRate - minRate, 0.0000001);
+  formatShortDate: (date: Date) => string;
+  formatAmount: (currency: string, amount: bigint) => string;
+}> = ({ entry, formatDate, formatShortDate, formatAmount }) => {
+  const [rangeZoom, setRangeZoom] = useState<RangeZoom>('all');
+  const [selectedDayKey, setSelectedDayKey] = useState<string | null>(null);
 
-  const coordinates = points.map((point) => {
-    const x = padding + ((point.date.getTime() - minTime) / timeSpan) * (width - padding * 2);
-    const y = height - padding - ((point.rate - minRate) / rateSpan) * (height - padding * 2);
-    return { ...point, x, y };
-  });
+  const allDayBuckets = useMemo<DayBucket[]>(() => {
+    const map = new Map<string, CardRateHistoryItem[]>();
+    entry.points.forEach((point) => {
+      const list = map.get(point.dayKey) ?? [];
+      list.push(point);
+      map.set(point.dayKey, list);
+    });
 
-  const path = coordinates
-    .map((point, index) => `${0 === index ? 'M' : 'L'} ${point.x} ${point.y}`)
-    .join(' ');
+    return [...map.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([dayKey, points]) => ({
+        dayKey,
+        date: points[0]!.date,
+        points,
+        averageRate: points.reduce((sum, p) => sum + p.rate, 0) / points.length,
+      }));
+  }, [entry.points]);
+
+  const latestDayBucket = allDayBuckets[allDayBuckets.length - 1];
+  const activeDayKey =
+    selectedDayKey && allDayBuckets.some((b) => b.dayKey === selectedDayKey)
+      ? selectedDayKey
+      : (latestDayBucket?.dayKey ?? null);
+
+  const visibleDayBuckets = useMemo<DayBucket[]>(() => {
+    if (0 === allDayBuckets.length) {
+      return [];
+    }
+
+    if ('1d' === rangeZoom) {
+      const match = allDayBuckets.find((b) => b.dayKey === activeDayKey);
+      return match ? [match] : [allDayBuckets[allDayBuckets.length - 1]!];
+    }
+
+    if ('7d' === rangeZoom && latestDayBucket) {
+      const cutoffTime = latestDayBucket.date.getTime() - 6 * 24 * 60 * 60 * 1000;
+      return allDayBuckets.filter((b) => b.date.getTime() >= cutoffTime);
+    }
+
+    return allDayBuckets;
+  }, [activeDayKey, allDayBuckets, latestDayBucket, rangeZoom]);
+
+  const visiblePoints = useMemo(
+    () => visibleDayBuckets.flatMap((bucket) => bucket.points),
+    [visibleDayBuckets],
+  );
+
+  const rates = visiblePoints.map((p) => p.rate);
+  const minRate = 0 < rates.length ? Math.min(...rates) : 0;
+  const maxRate = 0 < rates.length ? Math.max(...rates) : 0;
+  const avgRate = 0 < rates.length ? rates.reduce((sum, r) => sum + r, 0) / rates.length : 0;
+
+  const rawSpan = maxRate - minRate;
+  const yPad = 0.0005 > rawSpan ? Math.max(minRate * 0.005, 0.05) : rawSpan * 0.18;
+  const yMin = minRate - yPad;
+  const yMax = maxRate + yPad;
+  const ySpan = Math.max(yMax - yMin, 0.0001);
+
+  const width = 360;
+  const height = 160;
+  const padLeft = 22;
+  const padRight = 22;
+  const padTop = 18;
+  const padBottom = 22;
+  const plotWidth = width - padLeft - padRight;
+  const plotHeight = height - padTop - padBottom;
+
+  const toY = (rate: number) => height - padBottom - ((rate - yMin) / ySpan) * plotHeight;
+
+  const chartData = useMemo(() => {
+    const bucketCount = visibleDayBuckets.length;
+    const bucketSpacing = 1 < bucketCount ? plotWidth / (bucketCount - 1) : plotWidth;
+    const maxSpread =
+      1 === bucketCount
+        ? Math.min(140, visiblePoints.length * 28)
+        : Math.min(24, bucketSpacing * 0.36);
+
+    const bucketCenters: { dayKey: string; x: number; avgY: number; date: Date }[] = [];
+    const dots: {
+      key: string;
+      x: number;
+      y: number;
+      point: CardRateHistoryItem;
+      isSelectedDay: boolean;
+    }[] = [];
+
+    visibleDayBuckets.forEach((bucket, bIdx) => {
+      const centerX =
+        1 === bucketCount ? width / 2 : padLeft + (bIdx / (bucketCount - 1)) * plotWidth;
+      const avgY = height - padBottom - ((bucket.averageRate - yMin) / ySpan) * plotHeight;
+      bucketCenters.push({
+        dayKey: bucket.dayKey,
+        x: centerX,
+        avgY,
+        date: bucket.date,
+      });
+
+      const count = bucket.points.length;
+      bucket.points.forEach((point, pIdx) => {
+        const offset = 1 === count ? 0 : ((pIdx - (count - 1) / 2) / (count - 1)) * maxSpread;
+        const x = centerX + offset;
+        const y = height - padBottom - ((point.rate - yMin) / ySpan) * plotHeight;
+        dots.push({
+          key: point.id ?? `${bucket.dayKey}-${pIdx}`,
+          x,
+          y,
+          point,
+          isSelectedDay: bucket.dayKey === activeDayKey,
+        });
+      });
+    });
+
+    const avgTrendPath =
+      1 < bucketCenters.length
+        ? bucketCenters
+            .map((center, idx) => `${0 === idx ? 'M' : 'L'} ${center.x} ${center.avgY}`)
+            .join(' ')
+        : '';
+
+    return { bucketCenters, dots, avgTrendPath };
+  }, [
+    activeDayKey,
+    height,
+    padBottom,
+    padLeft,
+    plotHeight,
+    plotWidth,
+    visibleDayBuckets,
+    visiblePoints.length,
+    width,
+    yMin,
+    ySpan,
+  ]);
+
+  const activeBucket = useMemo(
+    () =>
+      visibleDayBuckets.find((b) => b.dayKey === activeDayKey) ??
+      visibleDayBuckets[visibleDayBuckets.length - 1],
+    [activeDayKey, visibleDayBuckets],
+  );
+
+  const pairLabel = `${entry.currency}/${entry.settlementCurrency}`;
 
   return (
-    <div className="grid gap-2 rounded-md border p-3">
-      <div className="flex items-center justify-between gap-3 text-sm">
-        <span className="font-medium">{entry.cardName}</span>
-        <span className="text-gray-500">{entry.currency}</span>
+    <div className="grid gap-3 rounded-lg border p-3.5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className="font-medium">{entry.cardName}</span>
+          <span className="rounded bg-gray-800 px-2 py-0.5 text-xs text-gray-300">{pairLabel}</span>
+        </div>
+        <div className="flex items-center gap-1">
+          {(['all', '7d', '1d'] as const).map((zoom) => (
+            <Button
+              key={zoom}
+              type="button"
+              variant={zoom === rangeZoom ? 'secondary' : 'ghost'}
+              size="sm"
+              className="h-6 px-2 text-xs uppercase"
+              onClick={() => setRangeZoom(zoom)}
+            >
+              {zoom}
+            </Button>
+          ))}
+        </div>
       </div>
-      <svg viewBox={`0 0 ${width} ${height}`} className="h-40 w-full">
-        <path d={path} fill="none" stroke="currentColor" strokeWidth="2" className="text-primary" />
-        {coordinates.map((point) => (
-          <circle
-            key={point.date.toISOString()}
-            cx={point.x}
-            cy={point.y}
-            r="3"
-            className="fill-primary"
+
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-gray-400">
+        <span>
+          Avg: <strong className="text-gray-200">{formatDisplayRate(avgRate)}</strong>
+        </span>
+        <span>
+          High: <strong className="text-emerald-400">{formatDisplayRate(maxRate)}</strong>
+        </span>
+        <span>
+          Low: <strong className="text-amber-400">{formatDisplayRate(minRate)}</strong>
+        </span>
+        <span>
+          {visiblePoints.length} {1 === visiblePoints.length ? 'txn' : 'txns'} ·{' '}
+          {visibleDayBuckets.length} {1 === visibleDayBuckets.length ? 'day' : 'days'}
+        </span>
+      </div>
+
+      <div className="relative">
+        <svg viewBox={`0 0 ${width} ${height}`} className="h-44 w-full overflow-visible">
+          <line
+            x1={padLeft}
+            y1={toY(maxRate)}
+            x2={width - padRight}
+            y2={toY(maxRate)}
+            stroke="currentColor"
+            strokeDasharray="2 3"
+            className="text-gray-800"
           />
-        ))}
-      </svg>
-      <div className="flex justify-between text-xs text-gray-500">
-        <span>{formatDate(points[0]!.date)}</span>
-        <span>{formatDate(points[points.length - 1]!.date)}</span>
+          <line
+            x1={padLeft}
+            y1={toY(avgRate)}
+            x2={width - padRight}
+            y2={toY(avgRate)}
+            stroke="currentColor"
+            strokeDasharray="2 3"
+            className="text-gray-800"
+          />
+          <line
+            x1={padLeft}
+            y1={toY(minRate)}
+            x2={width - padRight}
+            y2={toY(minRate)}
+            stroke="currentColor"
+            strokeDasharray="2 3"
+            className="text-gray-800"
+          />
+
+          {chartData.bucketCenters.map((center) => (
+            <line
+              key={`grid-${center.dayKey}`}
+              x1={center.x}
+              y1={padTop}
+              x2={center.x}
+              y2={height - padBottom}
+              stroke="currentColor"
+              strokeWidth={center.dayKey === activeDayKey ? '1.5' : '1'}
+              className={center.dayKey === activeDayKey ? 'text-primary/30' : 'text-gray-800/60'}
+            />
+          ))}
+
+          {chartData.avgTrendPath ? (
+            <path
+              d={chartData.avgTrendPath}
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.75"
+              strokeDasharray="4 3"
+              className="text-primary/60"
+            />
+          ) : null}
+
+          {chartData.dots.map((dot) => (
+            <circle
+              key={dot.key}
+              cx={dot.x}
+              cy={dot.y}
+              r={dot.isSelectedDay ? 5 : 4}
+              onClick={() => setSelectedDayKey(dot.point.dayKey)}
+              className={cn(
+                'cursor-pointer transition-all',
+                dot.isSelectedDay
+                  ? 'fill-primary stroke-background stroke-2'
+                  : 'fill-primary/70 hover:fill-primary',
+              )}
+            >
+              <title>
+                {`${dot.point.name ?? entry.currency} (${formatDate(dot.point.date)}): ${formatDisplayRate(dot.point.rate)} ${pairLabel}`}
+              </title>
+            </circle>
+          ))}
+        </svg>
+
+        <div className="flex justify-between text-xs text-gray-500">
+          <span>{visibleDayBuckets[0] ? formatDate(visibleDayBuckets[0].date) : ''}</span>
+          <span>
+            {1 < visibleDayBuckets.length
+              ? formatDate(visibleDayBuckets[visibleDayBuckets.length - 1]!.date)
+              : ''}
+          </span>
+        </div>
       </div>
-      <div className="flex justify-between text-xs text-gray-500">
-        <span>{formatConversionRate(minRate)}</span>
-        <span>{formatConversionRate(maxRate)}</span>
-      </div>
+
+      {1 < allDayBuckets.length ? (
+        <div className="flex flex-wrap gap-1.5 pt-1">
+          {visibleDayBuckets.map((bucket) => {
+            const isSelected = bucket.dayKey === activeBucket?.dayKey;
+            return (
+              <Button
+                key={bucket.dayKey}
+                type="button"
+                variant={isSelected ? 'secondary' : 'outline'}
+                size="sm"
+                className="h-6 px-2 text-xs"
+                onClick={() => setSelectedDayKey(bucket.dayKey)}
+              >
+                {formatShortDate(bucket.date)} ({bucket.points.length})
+              </Button>
+            );
+          })}
+        </div>
+      ) : null}
+
+      {activeBucket ? (
+        <div className="bg-muted/20 grid gap-1.5 rounded-md border border-gray-800 p-2.5">
+          <div className="flex items-center justify-between text-xs text-gray-400">
+            <span className="font-medium text-gray-300">
+              {formatDate(activeBucket.date)} ({activeBucket.points.length}{' '}
+              {1 === activeBucket.points.length ? 'txn' : 'txns'})
+            </span>
+            <span>
+              Day avg: {formatDisplayRate(activeBucket.averageRate)} {pairLabel}
+            </span>
+          </div>
+          <div className="grid gap-1">
+            {activeBucket.points.map((point) => (
+              <div
+                key={
+                  point.id ??
+                  `${point.dayKey}-${point.paidAmount.toString()}-${point.settlementAmount.toString()}-${point.name ?? ''}`
+                }
+                className="flex items-center justify-between gap-2 text-xs"
+              >
+                <span className="min-w-0 truncate text-gray-300">
+                  {point.name || entry.currency}
+                </span>
+                <div className="flex shrink-0 items-center gap-2">
+                  <span className="text-gray-400">
+                    {formatAmount(entry.currency, point.paidAmount)} →{' '}
+                    {formatAmount(entry.settlementCurrency, point.settlementAmount)}
+                  </span>
+                  <span className="text-primary font-medium">{formatDisplayRate(point.rate)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 };

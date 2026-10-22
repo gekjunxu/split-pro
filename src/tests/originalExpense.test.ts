@@ -4,6 +4,7 @@ import {
   calculateExchangeRateFromSettlement,
   calculatePaidPerSettlementRate,
   calculateSettlementAmount,
+  formatDisplayRate,
   validateAndNormalizeOriginalExpenseFields,
 } from '~/lib/originalExpense';
 import { type AddExpenseState, calculateParticipantSplit, initSplitShares } from '~/store/addStore';
@@ -95,6 +96,12 @@ describe('validateAndNormalizeOriginalExpenseFields', () => {
     expect(cardRate).toBeCloseTo(1172.161172);
   });
 
+  it('formats traveler-facing rates with concise decimal precision', () => {
+    expect(formatDisplayRate(1172.161172)).toBe('1172.16');
+    expect(formatDisplayRate(23.7288135)).toBe('23.729');
+    expect(formatDisplayRate(0.04214)).toBe('0.0421');
+  });
+
   it('keeps same-currency expenses unchanged by clearing original fields', () => {
     const normalized = validateAndNormalizeOriginalExpenseFields({
       amount: 1138n,
@@ -127,6 +134,20 @@ describe('validateAndNormalizeOriginalExpenseFields', () => {
     expect(normalized.originalCurrency).toBe('JPY');
     expect(normalized.conversionRate).toBe(0.0091);
     expect(normalized.cardId).toBe(1);
+  });
+
+  it('accepts statement-derived rates within 1-cent rounding tolerance', () => {
+    const normalized = validateAndNormalizeOriginalExpenseFields({
+      amount: 1475n,
+      currency: 'SGD',
+      originalAmount: 35000n,
+      originalCurrency: 'TWD',
+      conversionRate: 0.04214,
+    });
+
+    expect(normalized.amount).toBe(1475n);
+    expect(normalized.originalAmount).toBe(35000n);
+    expect(normalized.originalCurrency).toBe('TWD');
   });
 
   it('splits a foreign-currency settlement amount evenly for balances', () => {

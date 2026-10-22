@@ -10,7 +10,12 @@ import { parseCurrencyCode } from '~/lib/currency';
 import { hasOriginalExpenseDetails } from '~/lib/originalExpense';
 import { deserializeSplitShares } from '~/lib/splitShares';
 import { isBankConnectionConfigured } from '~/server/bankTransactionHelper';
-import { useAddExpenseStore } from '~/store/addStore';
+import {
+  getAddExpenseDraftScopeKey,
+  loadAddExpenseDraft,
+  saveAddExpenseDraft,
+  useAddExpenseStore,
+} from '~/store/addStore';
 import { type NextPageWithUser } from '~/types';
 import { api } from '~/utils/api';
 import { customServerSideTranslations } from '~/utils/i18n/server';
@@ -43,19 +48,24 @@ const AddPage: NextPageWithUser<{
     resetState,
     setCronExpression,
     setFileKey,
+    setSplitType,
     applySplitPreset,
   } = useAddExpenseStore((s) => s.actions);
   const currentUser = useAddExpenseStore((s) => s.currentUser);
+  const initializedUserIdRef = useRef<number | null>(null);
   const initializedGroupIdRef = useRef<number | null>(null);
   const initializedFriendIdRef = useRef<number | null>(null);
   const initializedExpenseIdRef = useRef<string | null>(null);
+  const draftRestoredKeyRef = useRef<string | null>(null);
 
   useEffect(
     () => () => {
       resetState();
+      initializedUserIdRef.current = null;
       initializedExpenseIdRef.current = null;
       initializedGroupIdRef.current = null;
       initializedFriendIdRef.current = null;
+      draftRestoredKeyRef.current = null;
     },
     [resetState],
   );
@@ -67,28 +77,46 @@ const AddPage: NextPageWithUser<{
   const router = useRouter();
   const { friendId, groupId, expenseId } = router.query;
 
-  useEffect(() => {
-    setCurrentUser({
-      ...user,
-      defaultCurrency: user.defaultCurrency ?? null,
-      emailVerified: null,
-      name: user.name ?? null,
-      email: user.email ?? null,
-      image: user.image ?? null,
-      obapiProviderId: user.obapiProviderId ?? null,
-      bankingId: user.bankingId ?? null,
-    });
-    if (router.isReady && !groupId) {
-      const preferredCurrency = user.currency ?? user.defaultCurrency;
-      if (preferredCurrency) {
-        setCurrency(parseCurrencyCode(preferredCurrency));
-      }
-    }
-  }, [setCurrentUser, setCurrency, groupId, router.isReady, user]);
-
   const parsedGroupId = isStringQueryParam(groupId) ? parseInt(groupId) : Number.NaN;
   const parsedFriendId = isStringQueryParam(friendId) ? parseInt(friendId) : Number.NaN;
   const parsedExpenseId = isStringQueryParam(expenseId) ? expenseId : '';
+  const draftScopeKey = router.isReady
+    ? getAddExpenseDraftScopeKey({
+        groupId: Number.isNaN(parsedGroupId) ? undefined : parsedGroupId,
+        friendId: Number.isNaN(parsedFriendId) ? undefined : parsedFriendId,
+        expenseId: parsedExpenseId,
+      })
+    : '';
+
+  useEffect(() => {
+    if (!router.isReady) {
+      return;
+    }
+
+    if (initializedUserIdRef.current !== user.id) {
+      initializedUserIdRef.current = user.id;
+      setCurrentUser({
+        ...user,
+        defaultCurrency: user.defaultCurrency ?? null,
+        emailVerified: null,
+        name: user.name ?? null,
+        email: user.email ?? null,
+        image: user.image ?? null,
+        obapiProviderId: user.obapiProviderId ?? null,
+        bankingId: user.bankingId ?? null,
+      });
+    }
+
+    if (!groupId && !parsedExpenseId) {
+      const existingDraft = loadAddExpenseDraft(draftScopeKey);
+      if (!existingDraft) {
+        const preferredCurrency = user.defaultCurrency ?? user.currency;
+        if (preferredCurrency) {
+          setCurrency(parseCurrencyCode(preferredCurrency));
+        }
+      }
+    }
+  }, [setCurrentUser, setCurrency, groupId, parsedExpenseId, draftScopeKey, router.isReady, user]);
   const groupQuery = api.group.getGroupDetails.useQuery(
     { groupId: parsedGroupId },
     {
@@ -137,10 +165,13 @@ const AddPage: NextPageWithUser<{
           .map((gu) => gu.user)
           .filter((groupUser) => groupUser.id !== currentUser.id),
       ]);
-      const preferredCurrency =
-        currentUser.currency ?? groupQuery.data.defaultCurrency ?? currentUser.defaultCurrency;
-      if (preferredCurrency) {
-        setCurrency(parseCurrencyCode(preferredCurrency));
+      const existingDraft = loadAddExpenseDraft(draftScopeKey);
+      if (!existingDraft) {
+        const preferredCurrency =
+          groupQuery.data.defaultCurrency ?? currentUser.defaultCurrency ?? currentUser.currency;
+        if (preferredCurrency) {
+          setCurrency(parseCurrencyCode(preferredCurrency));
+        }
       }
       const parsedDefaultSplit = deserializeDefaultSplit(groupQuery.data.defaultSplit);
       if (parsedDefaultSplit) {
@@ -158,6 +189,7 @@ const AddPage: NextPageWithUser<{
     setParticipants,
     setCurrency,
     applySplitPreset,
+    draftScopeKey,
   ]);
 
   useEffect(() => {
@@ -209,12 +241,18 @@ const AddPage: NextPageWithUser<{
     setCategory(expenseQuery.data.category);
     setAmount(expenseQuery.data.amount);
     if (hasOriginalExpenseDetails(expenseQuery.data)) {
+      const origCurrency = parseCurrencyCode(expenseQuery.data.originalCurrency ?? '');
+      const origAmount =
+        expenseQuery.data.originalAmount !== null
+          ? BigMath.abs(expenseQuery.data.originalAmount)
+          : undefined;
       setOriginalExpense({
-        originalAmount:
-          expenseQuery.data.originalAmount !== null
-            ? BigMath.abs(expenseQuery.data.originalAmount)
-            : undefined,
-        originalCurrency: parseCurrencyCode(expenseQuery.data.originalCurrency ?? ''),
+        originalAmount: origAmount,
+        originalAmountStr:
+          undefined !== origAmount
+            ? getCurrencyHelpersCached(origCurrency).toUIString(origAmount, false, true)
+            : '',
+        originalCurrency: origCurrency,
         conversionRate: expenseQuery.data.conversionRate ?? undefined,
       });
     } else {
@@ -271,6 +309,102 @@ const AddPage: NextPageWithUser<{
     getCurrencyHelpersCached,
     t,
   ]);
+
+  useEffect(() => {
+    if (!router.isReady || parsedExpenseId || !draftScopeKey || !currentUser) {
+      return;
+    }
+
+    if (groupId && (groupQuery.isPending || !groupQuery.data)) {
+      return;
+    }
+
+    if (friendId && (friendQuery.isPending || !friendQuery.data)) {
+      return;
+    }
+
+    if (draftRestoredKeyRef.current === draftScopeKey) {
+      return;
+    }
+
+    draftRestoredKeyRef.current = draftScopeKey;
+    const savedDraft = loadAddExpenseDraft(draftScopeKey);
+    if (!savedDraft) {
+      return;
+    }
+
+    setDescription(savedDraft.description);
+    setCurrency(savedDraft.currency);
+    setAmountStr(savedDraft.amountStr);
+    const parsedAmount = BigInt(savedDraft.amount || '0');
+    setAmount(savedDraft.isNegative ? -parsedAmount : parsedAmount);
+    setCategory(savedDraft.category);
+    setCardId(savedDraft.cardId);
+    setCronExpression(savedDraft.cronExpression);
+    if (savedDraft.expenseDateIso) {
+      const parsedDate = new Date(savedDraft.expenseDateIso);
+      if (!Number.isNaN(parsedDate.getTime())) {
+        setExpenseDate(parsedDate);
+      }
+    }
+    if (savedDraft.originalCurrency) {
+      setOriginalExpense({
+        originalAmount: savedDraft.originalAmount ? BigInt(savedDraft.originalAmount) : undefined,
+        originalAmountStr: savedDraft.originalAmountStr ?? '',
+        originalCurrency: savedDraft.originalCurrency,
+        conversionRate: savedDraft.conversionRate,
+      });
+    } else {
+      setOriginalExpense();
+    }
+    if (savedDraft.splitType) {
+      setSplitType(savedDraft.splitType);
+    }
+    if (savedDraft.paidById) {
+      const payer = useAddExpenseStore
+        .getState()
+        .participants.find((p) => p.id === savedDraft.paidById);
+      if (payer) {
+        setPaidBy(payer);
+      }
+    }
+    useAddExpenseStore.setState({ showFriends: false });
+  }, [
+    router.isReady,
+    parsedExpenseId,
+    draftScopeKey,
+    currentUser,
+    groupId,
+    groupQuery.isPending,
+    groupQuery.data,
+    friendId,
+    friendQuery.isPending,
+    friendQuery.data,
+    setDescription,
+    setCurrency,
+    setAmountStr,
+    setAmount,
+    setCategory,
+    setCardId,
+    setCronExpression,
+    setExpenseDate,
+    setOriginalExpense,
+    setSplitType,
+    setPaidBy,
+  ]);
+
+  useEffect(() => {
+    if (!router.isReady || parsedExpenseId || !draftScopeKey) {
+      return;
+    }
+
+    return useAddExpenseStore.subscribe((state) => {
+      if (draftRestoredKeyRef.current !== draftScopeKey) {
+        return;
+      }
+      saveAddExpenseDraft(draftScopeKey, state);
+    });
+  }, [router.isReady, parsedExpenseId, draftScopeKey]);
 
   return (
     <>

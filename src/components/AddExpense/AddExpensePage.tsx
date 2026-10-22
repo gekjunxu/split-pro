@@ -1,37 +1,38 @@
 import { HeartHandshakeIcon, Landmark, RefreshCcwDot, X } from 'lucide-react';
+import { useSession } from 'next-auth/react';
 import { useTranslation } from 'next-i18next';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import React, { useCallback } from 'react';
-
-import { type CurrencyCode, isCurrencyCode } from '~/lib/currency';
-import { useAddExpenseStore } from '~/store/addStore';
-import { api } from '~/utils/api';
-
 import { toast } from 'sonner';
+
 import { useTranslationWithUtils } from '~/hooks/useTranslationWithUtils';
 import { cronToBackend } from '~/lib/cron';
+import { type CurrencyCode, isCurrencyCode } from '~/lib/currency';
+import { calculateExchangeRateFromSettlement } from '~/lib/originalExpense';
 import { serializeSplitShares } from '~/lib/splitShares';
 import { cn } from '~/lib/utils';
+import { clearAddExpenseDraft, useAddExpenseStore } from '~/store/addStore';
+import { api } from '~/utils/api';
+import { BigMath, currencyConversion } from '~/utils/numbers';
+import { isStringQueryParam } from '~/utils/queryParams';
+
+import { CurrencyConversion } from '../Friend/CurrencyConversion';
 import { Button } from '../ui/button';
+import { CurrencyConversionIcon } from '../ui/categoryIcons';
+import { CurrencyInput } from '../ui/currency-input';
 import { Input } from '../ui/input';
 import AddBankTransactions from './AddBankTransactions';
 import { CardSelector } from './CardSelector';
 import { CategoryPicker } from './CategoryPicker';
 import { CurrencyPicker } from './CurrencyPicker';
 import { DateSelector } from './DateSelector';
+import { OriginalExpenseDetails } from './OriginalExpenseDetails';
 import { RecurrenceInput } from './RecurrenceInput';
 import { SelectUserOrGroup } from './SelectUserOrGroup';
 import { PayerSelectionForm, SplitExpenseForm } from './SplitTypeSection';
 import { UploadFile } from './UploadFile';
 import { UserInput } from './UserInput';
-import { OriginalExpenseDetails } from './OriginalExpenseDetails';
-import { CurrencyInput } from '../ui/currency-input';
-import { CurrencyConversion } from '../Friend/CurrencyConversion';
-import { BigMath, currencyConversion } from '~/utils/numbers';
-import { CurrencyConversionIcon } from '../ui/categoryIcons';
-import { useSession } from 'next-auth/react';
-import { isStringQueryParam } from '~/utils/queryParams';
 
 export const AddOrEditExpensePage: React.FC<{
   enableSendingInvites: boolean;
@@ -47,6 +48,7 @@ export const AddOrEditExpensePage: React.FC<{
   const category = useAddExpenseStore((s) => s.category);
   const description = useAddExpenseStore((s) => s.description);
   const originalAmount = useAddExpenseStore((s) => s.originalAmount);
+  const originalAmountStr = useAddExpenseStore((s) => s.originalAmountStr);
   const originalCurrency = useAddExpenseStore((s) => s.originalCurrency);
   const conversionRate = useAddExpenseStore((s) => s.conversionRate);
   const cardId = useAddExpenseStore((s) => s.cardId);
@@ -62,7 +64,6 @@ export const AddOrEditExpensePage: React.FC<{
   const transactionId = useAddExpenseStore((s) => s.transactionId);
   const cronExpression = useAddExpenseStore((s) => s.cronExpression);
   const multipleTransactions = useAddExpenseStore((s) => s.multipleTransactions);
-  const [previousCurrency, setPreviousCurrency] = React.useState<CurrencyCode | null>(null);
 
   const { t, displayName, generateSplitDescription, getCurrencyHelpersCached } =
     useTranslationWithUtils();
@@ -84,13 +85,92 @@ export const AddOrEditExpensePage: React.FC<{
   } = useAddExpenseStore((s) => s.actions);
 
   const addExpenseMutation = api.expense.addOrEditExpense.useMutation();
-  const cardsQuery = api.card.list.useQuery();
+  const cardsQuery = api.card.list.useQuery(undefined, {
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
   const apiUtils = api.useUtils();
-  const updateProfile = api.user.updateUserDetail.useMutation();
   const { update } = useSession();
   const selectedPaymentSource = React.useMemo(
     () => cardsQuery.data?.find((card) => card.id === cardId),
     [cardId, cardsQuery.data],
+  );
+
+  const defaultSettlementCurrency = React.useMemo<CurrencyCode>(() => {
+    if (isCurrencyCode(selectedPaymentSource?.settlementCurrency)) {
+      return selectedPaymentSource.settlementCurrency;
+    }
+    if (isCurrencyCode(group?.defaultCurrency)) {
+      return group.defaultCurrency;
+    }
+    if (isCurrencyCode(currentUser?.defaultCurrency)) {
+      return currentUser.defaultCurrency;
+    }
+    if (isCurrencyCode(currentUser?.currency)) {
+      return currentUser.currency;
+    }
+    return currency;
+  }, [
+    currency,
+    currentUser?.currency,
+    currentUser?.defaultCurrency,
+    group?.defaultCurrency,
+    selectedPaymentSource?.settlementCurrency,
+  ]);
+
+  const isOverseasActive = Boolean(originalCurrency && originalCurrency !== currency);
+  const previousCurrencyRef = React.useRef<CurrencyCode | null>(null);
+  const router = useRouter();
+
+  const onStartOverseas = useCallback(
+    (paidCurrency: CurrencyCode) => {
+      const targetSettlementCurrency =
+        defaultSettlementCurrency !== paidCurrency ? defaultSettlementCurrency : currency;
+
+      if (targetSettlementCurrency === paidCurrency) {
+        setCurrency(paidCurrency);
+        clearOriginalExpense();
+        return;
+      }
+
+      const nextOriginalAmount =
+        originalAmount !== undefined && 0n < originalAmount
+          ? originalAmount
+          : 0n < amount
+            ? amount
+            : undefined;
+      const nextOriginalAmountStr =
+        originalAmountStr !== undefined && '' !== originalAmountStr
+          ? originalAmountStr
+          : 0n < amount
+            ? amtStr
+            : '';
+
+      setCurrency(targetSettlementCurrency);
+      if (0n < amount && (originalAmount === undefined || 0n === originalAmount)) {
+        setAmount(0n);
+        setAmountStr('');
+      }
+      setOriginalExpense({
+        originalAmount: nextOriginalAmount,
+        originalAmountStr: nextOriginalAmountStr,
+        originalCurrency: paidCurrency,
+        conversionRate: undefined,
+      });
+    },
+    [
+      amount,
+      amtStr,
+      clearOriginalExpense,
+      currency,
+      defaultSettlementCurrency,
+      originalAmount,
+      originalAmountStr,
+      setAmount,
+      setAmountStr,
+      setCurrency,
+      setOriginalExpense,
+    ],
   );
 
   const onCurrencyPick = useCallback(
@@ -99,29 +179,256 @@ export const AddOrEditExpensePage: React.FC<{
         return;
       }
 
-      updateProfile.mutate({ currency: newCurrency });
+      if (isOverseasActive) {
+        if (newCurrency === currency) {
+          if (originalAmount !== undefined && 0n < originalAmount) {
+            const signedOrig = (isNegative ? -1n : 1n) * originalAmount;
+            setAmount(signedOrig);
+            setAmountStr(
+              originalAmountStr ??
+                getCurrencyHelpersCached(newCurrency).toUIString(signedOrig, true, true),
+            );
+          }
+          clearOriginalExpense();
+          return;
+        }
 
-      setPreviousCurrency(currency);
+        const nextRate =
+          originalAmount && 0n < originalAmount && 0n < amount
+            ? calculateExchangeRateFromSettlement({
+                paidAmount: (isNegative ? -1n : 1n) * originalAmount,
+                paidCurrency: newCurrency,
+                settlementAmount: (isNegative ? -1n : 1n) * amount,
+                settlementCurrency: currency,
+              })
+            : undefined;
+
+        setOriginalExpense({
+          originalAmount,
+          originalAmountStr,
+          originalCurrency: newCurrency,
+          conversionRate: nextRate,
+        });
+        return;
+      }
+
+      if (newCurrency !== defaultSettlementCurrency) {
+        onStartOverseas(newCurrency);
+        return;
+      }
+
+      previousCurrencyRef.current = currency;
       setCurrency(newCurrency);
       clearOriginalExpense();
     },
-    [clearOriginalExpense, currency, setCurrency, updateProfile],
+    [
+      amount,
+      clearOriginalExpense,
+      currency,
+      defaultSettlementCurrency,
+      getCurrencyHelpersCached,
+      isNegative,
+      isOverseasActive,
+      onStartOverseas,
+      originalAmount,
+      originalAmountStr,
+      setAmount,
+      setAmountStr,
+      setCurrency,
+      setOriginalExpense,
+    ],
   );
 
-  const router = useRouter();
+  const onChangeSettlementCurrency = useCallback(
+    (nextSettlementCurrency: CurrencyCode) => {
+      setCurrency(nextSettlementCurrency);
+      if (originalCurrency && originalAmount && 0n < originalAmount && 0n < amount) {
+        const nextRate = calculateExchangeRateFromSettlement({
+          paidAmount: (isNegative ? -1n : 1n) * originalAmount,
+          paidCurrency: originalCurrency,
+          settlementAmount: (isNegative ? -1n : 1n) * amount,
+          settlementCurrency: nextSettlementCurrency,
+        });
+        setOriginalExpense({
+          originalAmount,
+          originalAmountStr,
+          originalCurrency,
+          conversionRate: nextRate,
+        });
+      }
+    },
+    [
+      amount,
+      isNegative,
+      originalAmount,
+      originalAmountStr,
+      originalCurrency,
+      setCurrency,
+      setOriginalExpense,
+    ],
+  );
+
+  const onKeepInPaidCurrency = useCallback(() => {
+    if (!originalCurrency) {
+      return;
+    }
+
+    setCurrency(originalCurrency);
+    if (originalAmount !== undefined && 0n < originalAmount) {
+      const signedOrig = (isNegative ? -1n : 1n) * originalAmount;
+      setAmount(signedOrig);
+      setAmountStr(
+        originalAmountStr ??
+          getCurrencyHelpersCached(originalCurrency).toUIString(signedOrig, true, true),
+      );
+    }
+    clearOriginalExpense();
+  }, [
+    clearOriginalExpense,
+    getCurrencyHelpersCached,
+    isNegative,
+    originalAmount,
+    originalAmountStr,
+    originalCurrency,
+    setAmount,
+    setAmountStr,
+    setCurrency,
+  ]);
 
   const onUpdateAmount = useCallback(
     ({ strValue, bigIntValue }: { strValue?: string; bigIntValue?: bigint }) => {
+      if (isOverseasActive && originalCurrency) {
+        const nextOriginalAmount =
+          bigIntValue !== undefined ? BigMath.abs(bigIntValue) : originalAmount;
+        const nextOriginalAmountStr = strValue !== undefined ? strValue : originalAmountStr;
+        const nextSign =
+          bigIntValue !== undefined ? (bigIntValue < 0n ? -1n : 1n) : isNegative ? -1n : 1n;
+
+        if (0n < amount && bigIntValue !== undefined) {
+          setAmount(nextSign * amount);
+        }
+
+        const nextRate =
+          nextOriginalAmount && 0n < nextOriginalAmount && 0n < amount
+            ? calculateExchangeRateFromSettlement({
+                paidAmount: nextSign * nextOriginalAmount,
+                paidCurrency: originalCurrency,
+                settlementAmount: nextSign * amount,
+                settlementCurrency: currency,
+              })
+            : conversionRate;
+
+        setOriginalExpense({
+          originalAmount: nextOriginalAmount,
+          originalAmountStr: nextOriginalAmountStr,
+          originalCurrency,
+          conversionRate: nextRate,
+        });
+        return;
+      }
+
       if (strValue !== undefined) {
         setAmountStr(strValue);
       }
       if (bigIntValue !== undefined) {
         setAmount(bigIntValue);
       }
-      setPreviousCurrency(null);
+      previousCurrencyRef.current = null;
       clearOriginalExpense();
     },
-    [clearOriginalExpense, setAmount, setAmountStr],
+    [
+      amount,
+      clearOriginalExpense,
+      conversionRate,
+      currency,
+      isNegative,
+      isOverseasActive,
+      originalAmount,
+      originalAmountStr,
+      originalCurrency,
+      setAmount,
+      setAmountStr,
+      setOriginalExpense,
+    ],
+  );
+
+  const onUpdateSettlementAmount = useCallback(
+    ({ strValue, bigIntValue }: { strValue?: string; bigIntValue?: bigint }) => {
+      if (strValue !== undefined) {
+        setAmountStr(strValue);
+      }
+
+      const nextAbsSettlement = bigIntValue !== undefined ? BigMath.abs(bigIntValue) : amount;
+      const sign = isNegative ? -1n : 1n;
+
+      if (bigIntValue !== undefined) {
+        setAmount(sign * nextAbsSettlement);
+      }
+
+      if (originalCurrency && originalAmount && 0n < originalAmount) {
+        const nextRate =
+          0n < nextAbsSettlement
+            ? calculateExchangeRateFromSettlement({
+                paidAmount: sign * originalAmount,
+                paidCurrency: originalCurrency,
+                settlementAmount: sign * nextAbsSettlement,
+                settlementCurrency: currency,
+              })
+            : undefined;
+        setOriginalExpense({
+          originalAmount,
+          originalAmountStr,
+          originalCurrency,
+          conversionRate: nextRate,
+        });
+      }
+    },
+    [
+      amount,
+      currency,
+      isNegative,
+      originalAmount,
+      originalAmountStr,
+      originalCurrency,
+      setAmount,
+      setAmountStr,
+      setOriginalExpense,
+    ],
+  );
+
+  const onApplyRate = useCallback(
+    ({
+      conversionRate: nextConversionRate,
+      settlementAmount: nextSettlementAmount,
+      settlementAmountStr: nextSettlementAmountStr,
+    }: {
+      conversionRate: number;
+      settlementAmount: bigint;
+      settlementAmountStr: string;
+    }) => {
+      if (!originalCurrency) {
+        return;
+      }
+
+      const sign = isNegative ? -1n : 1n;
+      setAmount(sign * BigMath.abs(nextSettlementAmount));
+      setAmountStr(nextSettlementAmountStr);
+      setOriginalExpense({
+        originalAmount,
+        originalAmountStr,
+        originalCurrency,
+        conversionRate: nextConversionRate,
+      });
+    },
+    [
+      isNegative,
+      originalAmount,
+      originalAmountStr,
+      originalCurrency,
+      setAmount,
+      setAmountStr,
+      setOriginalExpense,
+    ],
   );
 
   const addExpense = useCallback(async () => {
@@ -141,7 +448,7 @@ export const AddOrEditExpensePage: React.FC<{
     const shouldAutoConvertCash =
       !originalCurrency &&
       !conversionRate &&
-      selectedPaymentSource?.type === 'CASH' &&
+      'CASH' === selectedPaymentSource?.type &&
       selectedPaymentSource.autoConvertToSettlement &&
       selectedPaymentSource.defaultRate &&
       isCurrencyCode(selectedPaymentSource.defaultCurrency) &&
@@ -223,9 +530,10 @@ export const AddOrEditExpensePage: React.FC<{
         {
           onSuccess: async (d) => {
             if (d) {
+              clearAddExpenseDraft();
               await apiUtils.invalidate();
 
-              if (multipleTransactions.length > 0) {
+              if (0 < multipleTransactions.length) {
                 const allTransactions = [...multipleTransactions];
                 const transactionToAdd = allTransactions.pop();
                 if (transactionToAdd) {
@@ -234,7 +542,7 @@ export const AddOrEditExpensePage: React.FC<{
                 }
                 return;
               } else {
-                const id = d.length > 0 ? d[0]?.id : expenseId;
+                const id = 0 < d.length ? d[0]?.id : expenseId;
 
                 let navPromise: () => Promise<any> = () => Promise.resolve(true);
 
@@ -313,6 +621,7 @@ export const AddOrEditExpensePage: React.FC<{
   );
 
   const clearTransaction = useCallback(() => {
+    clearAddExpenseDraft();
     resetState();
     setMultipleTransactions([]);
   }, [resetState, setMultipleTransactions]);
@@ -321,61 +630,28 @@ export const AddOrEditExpensePage: React.FC<{
     () => group?.frequentCurrencies.filter(isCurrencyCode) ?? [],
     [group?.frequentCurrencies],
   );
+
   const onConvertAmount: React.ComponentProps<typeof CurrencyConversion>['onSubmit'] = useCallback(
     ({ amount: absAmount, rate }) => {
-      if (!previousCurrency) {
+      if (!previousCurrencyRef.current) {
         return;
       }
 
       const targetAmount =
-        (absAmount >= 0n ? 1n : -1n) *
+        (0n <= absAmount ? 1n : -1n) *
         currencyConversion({
           amount: absAmount,
           rate,
-          from: previousCurrency,
+          from: previousCurrencyRef.current,
           to: currency,
         });
       setAmount(targetAmount);
       setAmountStr(getCurrencyHelpersCached(currency).toUIString(targetAmount, false, true));
-      setPreviousCurrency(null);
+      previousCurrencyRef.current = null;
       clearOriginalExpense();
     },
-    [
-      clearOriginalExpense,
-      setAmount,
-      setAmountStr,
-      previousCurrency,
-      currency,
-      getCurrencyHelpersCached,
-    ],
+    [clearOriginalExpense, setAmount, setAmountStr, currency, getCurrencyHelpersCached],
   );
-
-  const onApplyOriginalExpense = useCallback(
-    ({
-      settlementAmount,
-      originalAmount: nextOriginalAmount,
-      originalCurrency: nextOriginalCurrency,
-      conversionRate: nextConversionRate,
-    }: {
-      settlementAmount: bigint;
-      originalAmount: bigint;
-      originalCurrency: CurrencyCode;
-      conversionRate: number;
-    }) => {
-      setAmount(settlementAmount);
-      setAmountStr(getCurrencyHelpersCached(currency).toUIString(settlementAmount, true, true));
-      setOriginalExpense({
-        originalAmount: BigMath.abs(nextOriginalAmount),
-        originalCurrency: nextOriginalCurrency,
-        conversionRate: nextConversionRate,
-      });
-    },
-    [currency, getCurrencyHelpersCached, setAmount, setAmountStr, setOriginalExpense],
-  );
-
-  const onClearOriginalExpense = useCallback(() => {
-    clearOriginalExpense();
-  }, [clearOriginalExpense]);
 
   const onCardPick = useCallback(
     (nextCardId?: number | null) => {
@@ -383,21 +659,76 @@ export const AddOrEditExpensePage: React.FC<{
 
       setCardId(nextCardId);
 
-      if (
-        0n === amount &&
-        nextPaymentSource?.type === 'CASH' &&
-        nextPaymentSource.autoConvertToSettlement &&
-        isCurrencyCode(nextPaymentSource.defaultCurrency)
-      ) {
-        setCurrency(nextPaymentSource.defaultCurrency);
-        clearOriginalExpense();
+      if ('CASH' === nextPaymentSource?.type && isCurrencyCode(nextPaymentSource.defaultCurrency)) {
+        const cashSettlement = isCurrencyCode(nextPaymentSource.settlementCurrency)
+          ? nextPaymentSource.settlementCurrency
+          : defaultSettlementCurrency;
+
+        if (
+          nextPaymentSource.autoConvertToSettlement &&
+          cashSettlement !== nextPaymentSource.defaultCurrency
+        ) {
+          const nextOriginalAmount =
+            originalAmount !== undefined && 0n < originalAmount
+              ? originalAmount
+              : 0n < amount
+                ? amount
+                : undefined;
+          const nextOriginalAmountStr =
+            originalAmountStr !== undefined && '' !== originalAmountStr
+              ? originalAmountStr
+              : 0n < amount
+                ? amtStr
+                : '';
+
+          setCurrency(cashSettlement);
+          if (0n < amount && (originalAmount === undefined || 0n === originalAmount)) {
+            setAmount(0n);
+            setAmountStr('');
+          }
+          setOriginalExpense({
+            originalAmount: nextOriginalAmount,
+            originalAmountStr: nextOriginalAmountStr,
+            originalCurrency: nextPaymentSource.defaultCurrency,
+            conversionRate:
+              nextPaymentSource.defaultRate && 0 < nextPaymentSource.defaultRate
+                ? 1 / nextPaymentSource.defaultRate
+                : undefined,
+          });
+          return;
+        }
+
+        if (0n === amount && !isOverseasActive) {
+          setCurrency(nextPaymentSource.defaultCurrency);
+          clearOriginalExpense();
+        }
       }
     },
-    [amount, cardsQuery.data, clearOriginalExpense, setCardId, setCurrency],
+    [
+      amount,
+      amtStr,
+      cardsQuery.data,
+      clearOriginalExpense,
+      defaultSettlementCurrency,
+      isOverseasActive,
+      originalAmount,
+      originalAmountStr,
+      setAmount,
+      setAmountStr,
+      setCardId,
+      setCurrency,
+      setOriginalExpense,
+    ],
   );
 
   const currencyConversionComponent = React.useMemo(() => {
-    if (currency === previousCurrency || previousCurrency === null || !amount || 0n === amount) {
+    if (
+      isOverseasActive ||
+      currency === previousCurrencyRef.current ||
+      null === previousCurrencyRef.current ||
+      !amount ||
+      0n === amount
+    ) {
       return null;
     }
 
@@ -405,7 +736,7 @@ export const AddOrEditExpensePage: React.FC<{
       <CurrencyConversion
         onSubmit={onConvertAmount}
         amount={amount}
-        currency={previousCurrency}
+        currency={previousCurrencyRef.current}
         editingTargetCurrency={currency}
       >
         <Button size="icon" variant="secondary" className="size-8">
@@ -413,11 +744,16 @@ export const AddOrEditExpensePage: React.FC<{
         </Button>
       </CurrencyConversion>
     );
-  }, [amount, currency, onConvertAmount, previousCurrency]);
+  }, [amount, currency, isOverseasActive, onConvertAmount]);
 
   const onBackButtonPress = useCallback(() => {
+    clearAddExpenseDraft();
     router.back();
   }, [router]);
+
+  const topInputCurrency = isOverseasActive && originalCurrency ? originalCurrency : currency;
+  const topInputStrValue = isOverseasActive ? (originalAmountStr ?? '') : amtStr;
+  const hasAnyAmountEntered = 0n < amount || 0n < (originalAmount ?? 0n);
 
   return (
     <div className="flex flex-col gap-4">
@@ -460,14 +796,14 @@ export const AddOrEditExpensePage: React.FC<{
           </div>
           <div className="flex gap-2">
             <CurrencyPicker
-              currentCurrency={currency}
+              currentCurrency={topInputCurrency}
               onCurrencyPick={onCurrencyPick}
               preferredCurrencies={groupQuickCurrencies}
             />
             <CurrencyInput
               placeholder={t('expense_details.add_expense_details.amount_placeholder')}
-              currency={currency}
-              strValue={amtStr}
+              currency={topInputCurrency}
+              strValue={topInputStrValue}
               allowNegative
               hideSymbol
               onValueChange={onUpdateAmount}
@@ -478,6 +814,7 @@ export const AddOrEditExpensePage: React.FC<{
           <OriginalExpenseDetails
             expenseDate={expenseDate}
             settlementAmount={(isNegative ? -1n : 1n) * amount}
+            settlementAmountStr={amtStr}
             settlementCurrency={currency}
             originalAmount={
               originalAmount !== undefined ? (isNegative ? -1n : 1n) * originalAmount : undefined
@@ -485,12 +822,15 @@ export const AddOrEditExpensePage: React.FC<{
             originalCurrency={originalCurrency}
             conversionRate={conversionRate}
             cardId={cardId}
-            onApply={onApplyOriginalExpense}
-            onClear={onClearOriginalExpense}
+            onStartOverseas={onStartOverseas}
+            onChangeSettlementCurrency={onChangeSettlementCurrency}
+            onKeepInPaidCurrency={onKeepInPaidCurrency}
+            onUpdateSettlementAmount={onUpdateSettlementAmount}
+            onApplyRate={onApplyRate}
             preferredCurrencies={groupQuickCurrencies}
           />
           <div className="h-[180px]">
-            {amount && '' !== description ? (
+            {hasAnyAmountEntered && '' !== description ? (
               <>
                 <div className="flex flex-col items-center justify-center text-sm text-gray-400 sm:mt-4 sm:flex-row">
                   <p>{t(`ui.expense.${isNegative ? 'received_by' : 'paid_by'}`)}</p>
@@ -557,7 +897,7 @@ export const AddOrEditExpensePage: React.FC<{
                   <RefreshCcwDot
                     className={cn(
                       cronExpression && 'text-primary',
-                      (!amtStr || !description) && 'invisible',
+                      (!topInputStrValue || !description) && 'invisible',
                       'size-6',
                     )}
                   />

@@ -36,11 +36,13 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   const router = useRouter();
   const currentPath = router.pathname;
   const mainLayoutRef = React.useRef<HTMLDivElement>(null);
+  const scrollContentRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
     const mainLayout = mainLayoutRef.current;
+    const scrollContent = scrollContentRef.current;
 
-    if (!mainLayout) {
+    if (!mainLayout || !scrollContent) {
       return () => {};
     }
 
@@ -64,7 +66,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 
     const resizeObserver = new ResizeObserver(restoreScrollPosition);
 
-    resizeObserver.observe(mainLayout);
+    resizeObserver.observe(scrollContent);
     const animationFrameId = requestAnimationFrame(restoreScrollPosition);
     const restoreTimeoutIds = [100, 300, 700, 1200, 2000].map((delayMs) =>
       window.setTimeout(restoreScrollPosition, delayMs),
@@ -165,7 +167,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
               {actions}
             </div>
           ) : null}
-          <div className="px-4">
+          <div className="px-4" ref={scrollContentRef}>
             {loading ? (
               <div className="mt-10 flex justify-center">
                 <LoadingSpinner className="text-primary" />

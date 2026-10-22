@@ -2,6 +2,8 @@ import { isCurrencyCode } from '~/lib/currency';
 import { calculatePaidPerSettlementRate } from '~/lib/originalExpense';
 
 export interface CardAnalyticsExpense {
+  id?: string;
+  name?: string;
   amount: bigint;
   originalAmount: bigint | null;
   originalCurrency: string | null;
@@ -15,6 +17,20 @@ export interface CardAnalyticsExpense {
   } | null;
 }
 
+export interface CardRateHistoryItem {
+  id?: string;
+  name?: string;
+  currency: string;
+  settlementCurrency: string;
+  cardId: number;
+  cardName: string;
+  date: Date;
+  dayKey: string;
+  rate: number;
+  paidAmount: bigint;
+  settlementAmount: bigint;
+}
+
 export interface CardAnalyticsSummary {
   spendingByCard: { cardId: number; cardName: string; currency: string; amount: bigint }[];
   foreignSpendingByCurrency: { currency: string; amount: bigint }[];
@@ -23,13 +39,7 @@ export interface CardAnalyticsSummary {
     currency: string;
     cards: { cardId: number; cardName: string; averageRate: number; count: number }[];
   }[];
-  rateHistory: {
-    currency: string;
-    cardId: number;
-    cardName: string;
-    date: Date;
-    rate: number;
-  }[];
+  rateHistory: CardRateHistoryItem[];
   insights: {
     mostUsedCard?: string;
     highestForeignSpendCard?: string;
@@ -38,6 +48,8 @@ export interface CardAnalyticsSummary {
 }
 
 const MIN_INSIGHT_SAMPLE_SIZE = 3;
+
+export const toDayKey = (date: Date): string => date.toISOString().slice(0, 10);
 
 const hasForeignMetadata = (expense: CardAnalyticsExpense) =>
   null !== expense.originalAmount &&
@@ -56,19 +68,15 @@ const incrementNumberMap = (map: Map<string, number>, key: string, amount: numbe
 const compareBigIntDesc = (a: bigint, b: bigint) => (a === b ? 0 : a > b ? -1 : 1);
 
 const toEffectiveCardRate = (expense: CardAnalyticsExpense) => {
-  if (
-    null === expense.originalAmount ||
-    !isCurrencyCode(expense.originalCurrency) ||
-    !isCurrencyCode(expense.currency)
-  ) {
+  if (!isCurrencyCode(expense.originalCurrency) || !isCurrencyCode(expense.currency)) {
     return expense.conversionRate ?? 0;
   }
 
   return calculatePaidPerSettlementRate({
-    paidAmount: expense.originalAmount < 0n ? -expense.originalAmount : expense.originalAmount,
+    paidAmount: expense.originalAmount! < 0n ? -expense.originalAmount! : expense.originalAmount!,
     paidCurrency: expense.originalCurrency,
-    settlementAmount: expense.amount < 0n ? -expense.amount : expense.amount,
     settlementCurrency: expense.currency,
+    settlementAmount: expense.amount < 0n ? -expense.amount : expense.amount,
   });
 };
 
@@ -173,13 +181,25 @@ export const calculateCardAnalytics = (expenses: CardAnalyticsExpense[]): CardAn
         isCurrencyCode(expense.currency),
     )
     .map((expense) => ({
+      id: expense.id,
+      name: expense.name,
       currency: expense.originalCurrency!,
+      settlementCurrency: expense.currency,
       cardId: expense.card!.id,
       cardName: expense.card!.name,
       date: expense.expenseDate!,
+      dayKey: toDayKey(expense.expenseDate!),
       rate: toEffectiveCardRate(expense),
+      paidAmount: expense.originalAmount! < 0n ? -expense.originalAmount! : expense.originalAmount!,
+      settlementAmount: expense.amount < 0n ? -expense.amount : expense.amount,
     }))
-    .sort((a, b) => a.date.getTime() - b.date.getTime());
+    .sort((a, b) => {
+      const timeDiff = a.date.getTime() - b.date.getTime();
+      if (0 !== timeDiff) {
+        return timeDiff;
+      }
+      return (a.id ?? '').localeCompare(b.id ?? '');
+    });
 
   const mostUsedCard = cardUsage.find((card) => card.count >= MIN_INSIGHT_SAMPLE_SIZE)?.cardName;
 

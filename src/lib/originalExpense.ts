@@ -2,6 +2,7 @@ import { type Expense } from '@prisma/client';
 
 import { CURRENCIES, type CurrencyCode, isCurrencyCode } from '~/lib/currency';
 import {
+  BigMath,
   MAX_RATE_PRECISION,
   currencyConversion,
   getRatePrecision,
@@ -67,7 +68,7 @@ export const validateAndNormalizeOriginalExpenseFields = <T extends OriginalExpe
     to: expense.currency,
   });
 
-  if (expectedSettlementAmount !== expense.amount) {
+  if (1n < BigMath.abs(expectedSettlementAmount - expense.amount)) {
     throw new Error('Settlement amount does not match the original amount and conversion rate');
   }
 
@@ -81,6 +82,22 @@ export const validateAndNormalizeOriginalExpenseFields = <T extends OriginalExpe
 
 export const formatConversionRate = (conversionRate: number) =>
   removeTrailingZeros(conversionRate.toFixed(getRatePrecision(conversionRate, MAX_RATE_PRECISION)));
+
+export const formatDisplayRate = (rate: number) => {
+  if (!Number.isFinite(rate) || 0 >= rate) {
+    return '0';
+  }
+
+  if (100 <= Math.abs(rate)) {
+    return removeTrailingZeros(rate.toFixed(2));
+  }
+
+  if (1 <= Math.abs(rate)) {
+    return removeTrailingZeros(rate.toFixed(3));
+  }
+
+  return removeTrailingZeros(rate.toFixed(getRatePrecision(rate, 4)));
+};
 
 export const calculateSettlementAmount = ({
   paidAmount,
@@ -118,10 +135,7 @@ export const calculateExchangeRateFromSettlement = ({
   const paidMultiplier = 10 ** CURRENCIES[paidCurrency].decimalDigits;
   const settlementMultiplier = 10 ** CURRENCIES[settlementCurrency].decimalDigits;
 
-  return (
-    (Number(settlementAmount) / settlementMultiplier) /
-    (Number(paidAmount) / paidMultiplier)
-  );
+  return Number(settlementAmount) / settlementMultiplier / (Number(paidAmount) / paidMultiplier);
 };
 
 export const calculatePaidPerSettlementRate = ({

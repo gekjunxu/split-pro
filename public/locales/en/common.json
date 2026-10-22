@@ -294,6 +294,7 @@
         "conversion_direction": "{paidAmount} converts to {settlementAmount} for group balances.",
         "description": "Enter what you spent overseas. SplitPro converts it into the group currency for balances.",
         "edit_rate": "Edit rate",
+        "keep_in_currency": "Keep in {currency}",
         "paid_amount": "Paid amount",
         "paid_currency": "Paid currency",
         "preview": "Settlement amount",
