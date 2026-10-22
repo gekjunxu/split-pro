@@ -597,16 +597,21 @@ export const loadAddExpenseDraft = (scopeKey: string): AddExpenseDraft | null =>
       return null;
     }
     const record: Record<string, unknown> = Object.fromEntries(Object.entries(parsed));
-    if (record.scopeKey !== scopeKey || !isCurrencyCode(record.currency)) {
+    if (
+      record.scopeKey !== scopeKey ||
+      'string' !== typeof record.currency ||
+      !isCurrencyCode(record.currency)
+    ) {
       return null;
     }
-    const originalCurrency =
+    const rawOriginalCurrency =
       'string' === typeof record.originalCurrency && '' !== record.originalCurrency
         ? record.originalCurrency
         : undefined;
-    if (originalCurrency && !isCurrencyCode(originalCurrency)) {
+    if (rawOriginalCurrency && !isCurrencyCode(rawOriginalCurrency)) {
       return null;
     }
+    const originalCurrency: CurrencyCode | undefined = rawOriginalCurrency;
 
     return {
       scopeKey,
@@ -618,7 +623,7 @@ export const loadAddExpenseDraft = (scopeKey: string): AddExpenseDraft | null =>
       description: 'string' === typeof record.description ? record.description : '',
       originalAmount: 'string' === typeof record.originalAmount ? record.originalAmount : undefined,
       originalAmountStr:
-        'string' === typeof record.originalAmountStr ? record.originalAmountStr : undefined,
+        'string' === typeof record.originalAmountStr ? record.originalAmountStr : '',
       originalCurrency,
       conversionRate: 'number' === typeof record.conversionRate ? record.conversionRate : undefined,
       cardId:
