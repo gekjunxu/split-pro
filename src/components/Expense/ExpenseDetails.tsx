@@ -113,7 +113,7 @@ const ExpenseDetails: React.FC<ExpenseDetailsProps> = ({ user, expense }) => {
               </Link>
             ) : null}
             {expense.group ? (
-              <Link href={`/groups/${expense.group.id}`}>
+              <Link href={`/groups/${expense.group.id}`} scroll={false}>
                 <Button variant="outline" size="sm" className="mt-2 gap-2">
                   <div className="relative">
                     <Users className="size-4" />
