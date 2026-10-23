@@ -38,7 +38,7 @@ it('marks the active navigation section for nested routes', () => {
   });
 });
 
-it('restores the list position after returning from an expense', () => {
+it('does not overwrite the retained list position after returning from an expense', () => {
   const router = createMockRouter({
     pathname: '/groups/[groupId]',
     asPath: '/groups/scroll-state-test',
@@ -61,13 +61,13 @@ it('restores the list position after returning from an expense', () => {
     });
   const previousResizeObserver = globalThis.ResizeObserver;
   globalThis.ResizeObserver = TestResizeObserver;
+  jest.useFakeTimers();
 
   try {
     mainLayout.scrollTop = 452.57;
     expect(routeChangeStart).toBeDefined();
     act(() => routeChangeStart?.());
 
-    mainLayout.scrollTop = 0;
     router.pathname = '/expenses/[expenseId]';
     router.asPath = '/expenses/1';
     act(() => {
@@ -89,7 +89,14 @@ it('restores the list position after returning from an expense', () => {
     });
 
     expect(mainLayout.scrollTop).toBe(452.57);
+
+    mainLayout.scrollTop = 700;
+    act(() => {
+      jest.advanceTimersByTime(2000);
+    });
+    expect(mainLayout.scrollTop).toBe(700);
   } finally {
+    jest.useRealTimers();
     requestAnimationFrame.mockRestore();
     globalThis.ResizeObserver = previousResizeObserver;
   }

@@ -59,8 +59,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({
         return;
       }
 
-      mainLayout.scrollTop = storedScrollTop;
-
       if (SCROLL_RESTORE_TIMEOUT_MS < Date.now() - startedAt) {
         resizeObserver?.disconnect();
       }
