@@ -3,8 +3,7 @@ name: Deploy
 on:
   push:
     branches:
-      - main
-      - test
+      - codex/prodesk
 
   workflow_dispatch:
 
@@ -36,7 +35,7 @@ jobs:
           SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
         run: |
           install -m 700 -d ~/.ssh
-          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          printf '%s\\n' "$SSH_KEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
 
@@ -44,10 +43,10 @@ jobs:
         env:
           REPOSITORY_URL: ${{ github.server_url }}/${{ github.repository }}.git
         run: |
-          ssh -o BatchMode=yes "$DEPLOY_USER@$DEPLOY_HOST" \
-            "DEPLOY_PATH='$DEPLOY_PATH' \
-            DEPLOY_BRANCH='$DEPLOY_BRANCH' \
-            REPOSITORY_URL='$REPOSITORY_URL' \
+          ssh -o BatchMode=yes "$DEPLOY_USER@$DEPLOY_HOST" \\
+            "DEPLOY_PATH='$DEPLOY_PATH' \\
+            DEPLOY_BRANCH='$DEPLOY_BRANCH' \\
+            REPOSITORY_URL='$REPOSITORY_URL' \\
             sh -se" <<'EOF'
               if [ ! -d "$DEPLOY_PATH/.git" ]; then
                 if [ -e "$DEPLOY_PATH" ]; then
