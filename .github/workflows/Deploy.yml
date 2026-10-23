@@ -3,7 +3,7 @@ name: Deploy
 on:
   push:
     branches:
-      - personal
+      - staging
 
   workflow_dispatch:
 
