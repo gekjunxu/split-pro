@@ -58,6 +58,54 @@ jobs:
                 git clone --branch "$DEPLOY_BRANCH" --single-branch "$REPOSITORY_URL" "$DEPLOY_PATH"
               fi
 
+              # BEGIN TEMP PREVIEW ENV BOOTSTRAP
+              if [ ! -f "$DEPLOY_PATH/docker/preview/.env" ]; then
+                SOURCE_ENV="/home/junxu/split-pro/.env"
+                PREVIEW_ENV="$DEPLOY_PATH/docker/preview/.env"
+
+                if [ ! -f "$SOURCE_ENV" ]; then
+                  echo "Missing $SOURCE_ENV; cannot copy OAuth client settings." >&2
+                  exit 1
+                fi
+
+                cp "$DEPLOY_PATH/docker/preview/.env.example" "$PREVIEW_ENV"
+                update_env_value() {
+                  key="$1"
+                  value="$2"
+                  awk -v key="$key" -v value="$value" '
+                    index($0, key "=") == 1 { print key "=" value; found=1; next }
+                    { print }
+                    END { if (!found) print key "=" value }
+                  ' "$PREVIEW_ENV" > "$PREVIEW_ENV.tmp"
+                  mv "$PREVIEW_ENV.tmp" "$PREVIEW_ENV"
+                }
+                copy_env_line() {
+                  key="$1"
+                  line="$(grep -E "^$key=" "$SOURCE_ENV" | tail -n 1 || true)"
+                  if [ -z "$line" ]; then
+                    echo "Missing $key in $SOURCE_ENV." >&2
+                    exit 1
+                  fi
+                  awk -v key="$key" -v line="$line" '
+                    index($0, key "=") == 1 { print line; found=1; next }
+                    { print }
+                    END { if (!found) print line }
+                  ' "$PREVIEW_ENV" > "$PREVIEW_ENV.tmp"
+                  mv "$PREVIEW_ENV.tmp" "$PREVIEW_ENV"
+                }
+
+                db_password="$(openssl rand -hex 32)"
+                auth_secret="$(openssl rand -hex 32)"
+                update_env_value POSTGRES_PASSWORD "$db_password"
+                update_env_value DATABASE_URL "postgresql://splitpro_preview:$db_password@postgres:5432/splitpro_preview"
+                update_env_value NEXTAUTH_SECRET "$auth_secret"
+                copy_env_line GOOGLE_CLIENT_ID
+                copy_env_line GOOGLE_CLIENT_SECRET
+                chmod 600 "$PREVIEW_ENV"
+                echo "Created preview env with isolated secrets."
+              fi
+              # END TEMP PREVIEW ENV BOOTSTRAP
+
               if [ ! -f "$DEPLOY_PATH/docker/preview/.env" ]; then
                 echo "Missing $DEPLOY_PATH/docker/preview/.env; create it from docker/preview/.env.example on prodesk before deploying." >&2
                 exit 1
