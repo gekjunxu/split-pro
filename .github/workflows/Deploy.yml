@@ -3,7 +3,7 @@ name: Deploy
 on:
   push:
     branches:
-      - codex/prodesk
+      - personal
 
   workflow_dispatch:
 
