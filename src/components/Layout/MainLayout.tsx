@@ -13,7 +13,7 @@ import { useTranslation } from 'next-i18next';
 import React from 'react';
 import { LoadingSpinner } from '../ui/spinner';
 
-const mainLayoutScrollPositions = new Map<string, { mainLayout: number; window: number }>();
+const mainLayoutScrollPositions = new Map<string, number>();
 const SCROLL_RESTORE_TIMEOUT_MS = 2000;
 
 interface MainLayoutProps {
@@ -43,44 +43,45 @@ const MainLayout: React.FC<MainLayoutProps> = ({
     const scrollContent = scrollContentRef.current;
 
     if (!mainLayout || !scrollContent) {
-      return () => {};
+      return undefined;
     }
 
     const asPath = router.asPath;
-    const storedScrollPosition = mainLayoutScrollPositions.get(asPath);
+    const storedScrollTop = mainLayoutScrollPositions.get(asPath);
     const startedAt = Date.now();
     let routeChangeStarted = false;
+    let resizeObserver: ResizeObserver | undefined = undefined;
+    let animationFrameId: number | undefined = undefined;
+    const restoreTimeoutIds: number[] = [];
 
     const restoreScrollPosition = () => {
-      if (storedScrollPosition === undefined) {
+      if (storedScrollTop === undefined) {
         return;
       }
 
-      mainLayout.scrollTop = storedScrollPosition.mainLayout;
-      window.scrollTo(0, storedScrollPosition.window);
+      mainLayout.scrollTop = storedScrollTop;
 
       if (SCROLL_RESTORE_TIMEOUT_MS < Date.now() - startedAt) {
-        resizeObserver.disconnect();
+        resizeObserver?.disconnect();
       }
     };
 
-    const resizeObserver = new ResizeObserver(restoreScrollPosition);
-
-    resizeObserver.observe(scrollContent);
-    const animationFrameId = requestAnimationFrame(restoreScrollPosition);
-    const restoreTimeoutIds = [100, 300, 700, 1200, 2000].map((delayMs) =>
-      window.setTimeout(restoreScrollPosition, delayMs),
-    );
+    if (storedScrollTop !== undefined) {
+      resizeObserver = new ResizeObserver(restoreScrollPosition);
+      resizeObserver.observe(scrollContent);
+      restoreScrollPosition();
+      animationFrameId = requestAnimationFrame(restoreScrollPosition);
+      [100, 300, 700, 1200, 2000].forEach((delayMs) => {
+        restoreTimeoutIds.push(window.setTimeout(restoreScrollPosition, delayMs));
+      });
+    }
 
     const saveCurrentScrollPosition = () => {
       if (routeChangeStarted) {
         return;
       }
 
-      mainLayoutScrollPositions.set(asPath, {
-        mainLayout: mainLayout.scrollTop,
-        window: window.scrollY,
-      });
+      mainLayoutScrollPositions.set(asPath, mainLayout.scrollTop);
     };
 
     const handleRouteChangeStart = () => {
@@ -91,19 +92,16 @@ const MainLayout: React.FC<MainLayoutProps> = ({
       routeChangeStarted = false;
     };
 
-    mainLayout.addEventListener('scroll', saveCurrentScrollPosition, { passive: true });
-    window.addEventListener('scroll', saveCurrentScrollPosition, { passive: true });
     router.events.on('routeChangeStart', handleRouteChangeStart);
     router.events.on('routeChangeError', handleRouteChangeError);
     window.addEventListener('beforeunload', saveCurrentScrollPosition);
 
     return () => {
-      resizeObserver.disconnect();
-      cancelAnimationFrame(animationFrameId);
+      resizeObserver?.disconnect();
+      if (animationFrameId !== undefined) {
+        cancelAnimationFrame(animationFrameId);
+      }
       restoreTimeoutIds.forEach((timeoutId) => window.clearTimeout(timeoutId));
-      saveCurrentScrollPosition();
-      mainLayout.removeEventListener('scroll', saveCurrentScrollPosition);
-      window.removeEventListener('scroll', saveCurrentScrollPosition);
       router.events.off('routeChangeStart', handleRouteChangeStart);
       router.events.off('routeChangeError', handleRouteChangeError);
       window.removeEventListener('beforeunload', saveCurrentScrollPosition);
