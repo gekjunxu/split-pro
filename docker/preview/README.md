@@ -8,7 +8,7 @@ resources.
 
 ## Configure the server
 
-1. Check out the `codex/upstream-preview` branch in a dedicated directory. Do not
+1. Check out the `staging` branch in a dedicated directory. Do not
    use `/home/junxu/split-pro`, which is the production checkout.
 2. In `docker/preview`, copy `.env.example` to `.env`. Set new preview-only
    database credentials and a new `NEXTAUTH_SECRET`, then set `GOOGLE_CLIENT_ID`
@@ -27,6 +27,10 @@ resources.
    pass `SOURCE_DB_CONTAINER` and `SOURCE_APP_CONTAINER` when running the restore.
 
 ## Restore once and start the preview
+
+After the one-time preview setup, pushes to `staging` deploy this stack
+automatically through GitHub Actions. The workflow keeps the preview checkout
+separate from the production checkout at `/home/junxu/split-pro`.
 
 Run from the checked-out branch on `prodesk`:
 
