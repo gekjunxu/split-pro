@@ -13,6 +13,9 @@ import { useTranslation } from 'next-i18next';
 import React from 'react';
 import { LoadingSpinner } from '../ui/spinner';
 
+const mainLayoutScrollPositions = new Map<string, { mainLayout: number; window: number }>();
+const SCROLL_RESTORE_TIMEOUT_MS = 2000;
+
 interface MainLayoutProps {
   title?: React.ReactNode;
   children: React.ReactNode;
@@ -32,6 +35,103 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   const { t } = useTranslation();
   const router = useRouter();
   const currentPath = router.pathname;
+  const mainLayoutRef = React.useRef<HTMLDivElement>(null);
+  const scrollContentRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const mainLayout = mainLayoutRef.current;
+    const scrollContent = scrollContentRef.current;
+
+    if (!mainLayout || !scrollContent) {
+      return undefined;
+    }
+
+    const asPath = router.asPath;
+    const storedScrollPosition = mainLayoutScrollPositions.get(asPath);
+    const startedAt = Date.now();
+    let restoredScrollPosition = false;
+    let scrollRestorationCancelled = false;
+    let routeChangeStarted = false;
+
+    const restoreScrollPosition = () => {
+      if (
+        storedScrollPosition === undefined ||
+        restoredScrollPosition ||
+        scrollRestorationCancelled
+      ) {
+        return;
+      }
+
+      mainLayout.scrollTop = storedScrollPosition.mainLayout;
+      window.scrollTo(0, storedScrollPosition.window);
+
+      if (mainLayout.scrollTop === storedScrollPosition.mainLayout) {
+        restoredScrollPosition = true;
+        resizeObserver.disconnect();
+      }
+
+      if (SCROLL_RESTORE_TIMEOUT_MS < Date.now() - startedAt) {
+        resizeObserver.disconnect();
+      }
+    };
+
+    const resizeObserver = new ResizeObserver(restoreScrollPosition);
+    const cancelScrollRestoration = () => {
+      if (restoredScrollPosition) {
+        return;
+      }
+
+      scrollRestorationCancelled = true;
+      resizeObserver.disconnect();
+    };
+
+    resizeObserver.observe(scrollContent);
+    const animationFrameId = requestAnimationFrame(restoreScrollPosition);
+    const restoreTimeoutIds = [100, 300, 700, 1200, 2000].map((delayMs) =>
+      window.setTimeout(restoreScrollPosition, delayMs),
+    );
+
+    const saveCurrentScrollPosition = () => {
+      if (routeChangeStarted) {
+        return;
+      }
+
+      mainLayoutScrollPositions.set(asPath, {
+        mainLayout: mainLayout.scrollTop,
+        window: window.scrollY,
+      });
+    };
+
+    const handleRouteChangeStart = () => {
+      saveCurrentScrollPosition();
+      routeChangeStarted = true;
+    };
+    const handleRouteChangeError = () => {
+      routeChangeStarted = false;
+    };
+
+    mainLayout.addEventListener('scroll', saveCurrentScrollPosition, { passive: true });
+    mainLayout.addEventListener('wheel', cancelScrollRestoration, { passive: true });
+    mainLayout.addEventListener('touchstart', cancelScrollRestoration, { passive: true });
+    window.addEventListener('scroll', saveCurrentScrollPosition, { passive: true });
+    router.events.on('routeChangeStart', handleRouteChangeStart);
+    router.events.on('routeChangeError', handleRouteChangeError);
+    window.addEventListener('beforeunload', saveCurrentScrollPosition);
+
+    return () => {
+      resizeObserver.disconnect();
+      cancelAnimationFrame(animationFrameId);
+      restoreTimeoutIds.forEach((timeoutId) => window.clearTimeout(timeoutId));
+      saveCurrentScrollPosition();
+      mainLayout.removeEventListener('scroll', saveCurrentScrollPosition);
+      mainLayout.removeEventListener('wheel', cancelScrollRestoration);
+      mainLayout.removeEventListener('touchstart', cancelScrollRestoration);
+      window.removeEventListener('scroll', saveCurrentScrollPosition);
+      router.events.off('routeChangeStart', handleRouteChangeStart);
+      router.events.off('routeChangeError', handleRouteChangeError);
+      window.removeEventListener('beforeunload', saveCurrentScrollPosition);
+    };
+  }, [router.asPath, router.events]);
 
   return (
     <div className="bg-background h-full w-full">
@@ -80,6 +180,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
           />
         </nav>
         <div
+          ref={mainLayoutRef}
           className="w-full overflow-auto lg:border-x lg:border-gray-900 lg:px-6"
           id="mainlayout"
         >
@@ -89,7 +190,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
               {actions}
             </div>
           ) : null}
-          <div className="px-4">
+          <div className="px-4" ref={scrollContentRef}>
             {loading ? (
               <div className="mt-10 flex justify-center">
                 <LoadingSpinner className="text-primary" />
