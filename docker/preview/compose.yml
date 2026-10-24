@@ -44,7 +44,7 @@ services:
       NEXTAUTH_URL_INTERNAL: http://splitpro-preview-app:3000/splitprointegration/api/auth
       ENABLE_SENDING_INVITES: 'false'
       DISABLE_EMAIL_SIGNUP: 'true'
-      INVITE_ONLY: 'true'
+      INVITE_ONLY: 'false'
       DISABLE_PUSH_NOTIFICATIONS: 'true'
       WEB_PUSH_EMAIL: ''
       WEB_PUSH_PRIVATE_KEY: ''
