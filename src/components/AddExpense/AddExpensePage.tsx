@@ -85,10 +85,13 @@ export const AddOrEditExpensePage: React.FC<{
   } = useAddExpenseStore((s) => s.actions);
 
   const addExpenseMutation = api.expense.addOrEditExpense.useMutation();
-  const cardsQuery = api.card.list.useQuery(undefined, {
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-  });
+  const cardsQuery = api.card.list.useQuery(
+    { groupId: group?.id ?? null },
+    {
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+    },
+  );
   const apiUtils = api.useUtils();
   const { update } = useSession();
   const selectedPaymentSource = React.useMemo(
@@ -810,7 +813,7 @@ export const AddOrEditExpensePage: React.FC<{
               rightIcon={currencyConversionComponent}
             />
           </div>
-          <CardSelector cardId={cardId} onCardPick={onCardPick} />
+          <CardSelector groupId={group?.id ?? null} cardId={cardId} onCardPick={onCardPick} />
           <OriginalExpenseDetails
             expenseDate={expenseDate}
             settlementAmount={(isNegative ? -1n : 1n) * amount}
@@ -822,6 +825,7 @@ export const AddOrEditExpensePage: React.FC<{
             originalCurrency={originalCurrency}
             conversionRate={conversionRate}
             cardId={cardId}
+            groupId={group?.id ?? null}
             onStartOverseas={onStartOverseas}
             onChangeSettlementCurrency={onChangeSettlementCurrency}
             onKeepInPaidCurrency={onKeepInPaidCurrency}

@@ -6,10 +6,11 @@ import { api } from '~/utils/api';
 import { NativeSelect, NativeSelectOption } from '../ui/native-select';
 
 export const CardSelector: React.FC<{
+  groupId: number | null;
   cardId?: number | null;
   onCardPick: (cardId?: number | null) => void;
-}> = ({ cardId, onCardPick }) => {
-  const cardsQuery = api.card.list.useQuery();
+}> = ({ groupId, cardId, onCardPick }) => {
+  const cardsQuery = api.card.list.useQuery({ groupId });
 
   const onChange = useCallback(
     (event: React.ChangeEvent<HTMLSelectElement>) => {
