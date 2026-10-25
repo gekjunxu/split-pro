@@ -106,6 +106,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({
       saveCurrentScrollPosition();
       routeChangeStarted = true;
     };
+    const handleRouteChangeComplete = () => {
+      routeChangeStarted = false;
+    };
     const handleRouteChangeError = () => {
       routeChangeStarted = false;
     };
@@ -115,6 +118,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
     mainLayout.addEventListener('touchstart', cancelScrollRestoration, { passive: true });
     window.addEventListener('scroll', saveCurrentScrollPosition, { passive: true });
     router.events.on('routeChangeStart', handleRouteChangeStart);
+    router.events.on('routeChangeComplete', handleRouteChangeComplete);
     router.events.on('routeChangeError', handleRouteChangeError);
     window.addEventListener('beforeunload', saveCurrentScrollPosition);
 
@@ -128,6 +132,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
       mainLayout.removeEventListener('touchstart', cancelScrollRestoration);
       window.removeEventListener('scroll', saveCurrentScrollPosition);
       router.events.off('routeChangeStart', handleRouteChangeStart);
+      router.events.off('routeChangeComplete', handleRouteChangeComplete);
       router.events.off('routeChangeError', handleRouteChangeError);
       window.removeEventListener('beforeunload', saveCurrentScrollPosition);
     };
