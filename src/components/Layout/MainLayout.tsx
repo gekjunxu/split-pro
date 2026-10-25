@@ -52,6 +52,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
     let restoredScrollPosition = false;
     let scrollRestorationCancelled = false;
     let routeChangeStarted = false;
+    let skipCleanupSave = false;
 
     const restoreScrollPosition = () => {
       if (
@@ -108,9 +109,12 @@ const MainLayout: React.FC<MainLayoutProps> = ({
     };
     const handleRouteChangeComplete = () => {
       routeChangeStarted = false;
+      // Next completes the route before React cleans up this effect; do not save the new page's scroll under the old URL.
+      skipCleanupSave = true;
     };
     const handleRouteChangeError = () => {
       routeChangeStarted = false;
+      skipCleanupSave = false;
     };
 
     mainLayout.addEventListener('scroll', saveCurrentScrollPosition, { passive: true });
@@ -126,7 +130,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({
       resizeObserver.disconnect();
       cancelAnimationFrame(animationFrameId);
       restoreTimeoutIds.forEach((timeoutId) => window.clearTimeout(timeoutId));
-      saveCurrentScrollPosition();
+      if (!skipCleanupSave) {
+        saveCurrentScrollPosition();
+      }
       mainLayout.removeEventListener('scroll', saveCurrentScrollPosition);
       mainLayout.removeEventListener('wheel', cancelScrollRestoration);
       mainLayout.removeEventListener('touchstart', cancelScrollRestoration);

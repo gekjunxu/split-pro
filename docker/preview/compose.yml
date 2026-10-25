@@ -40,6 +40,7 @@ services:
       HOSTNAME: 0.0.0.0
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       NEXT_PUBLIC_APP_BASE_PATH: /splitprointegration
+      DEFAULT_HOMEPAGE: /balances
       NEXTAUTH_URL: https://prodesk.tail960ba6.ts.net/splitprointegration/api/auth
       NEXTAUTH_URL_INTERNAL: http://splitpro-preview-app:3000/splitprointegration/api/auth
       ENABLE_SENDING_INVITES: 'false'

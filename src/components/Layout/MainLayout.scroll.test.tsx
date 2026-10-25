@@ -268,3 +268,108 @@ it('keeps saving scroll after a rapid return before the route effect settles', (
     mockedUseRouter.mockReset();
   }
 });
+
+it('does not let route completion overwrite the saved position during cleanup', () => {
+  jest.useFakeTimers();
+
+  const routeHandlers = new Map<string, () => void>();
+  const routeEvents: NextRouter['events'] = {
+    on: (eventName, handler) => {
+      routeHandlers.set(eventName, () => handler());
+    },
+    off: () => {},
+    emit: () => {},
+  };
+  const router: NextRouter = {
+    route: '/groups/[groupId]',
+    pathname: '/groups/[groupId]',
+    query: {},
+    asPath: '/groups/scroll-cleanup-test',
+    basePath: '',
+    isLocaleDomain: false,
+    isFallback: false,
+    isReady: true,
+    isPreview: false,
+    events: routeEvents,
+    push: jest.fn(() => Promise.resolve(true)),
+    replace: jest.fn(() => Promise.resolve(true)),
+    reload: jest.fn(),
+    back: jest.fn(),
+    forward: jest.fn(),
+    prefetch: jest.fn(() => Promise.resolve()),
+    beforePopState: jest.fn(),
+  };
+  mockedUseRouter.mockReturnValue(router);
+
+  const animationFrames: FrameRequestCallback[] = [];
+  const requestAnimationFrame = jest
+    .spyOn(window, 'requestAnimationFrame')
+    .mockImplementation((callback) => {
+      animationFrames.push(callback);
+      return animationFrames.length;
+    });
+  const previousActEnvironment = globalThis.IS_REACT_ACT_ENVIRONMENT;
+  globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+  const previousResizeObserver = globalThis.ResizeObserver;
+  const previousScrollTo = window.scrollTo;
+  globalThis.ResizeObserver = TestResizeObserver;
+  window.scrollTo = jest.fn();
+
+  const container = document.createElement('div');
+  document.body.appendChild(container);
+  const root = createRoot(container);
+
+  try {
+    act(() => {
+      root.render(
+        <MainLayout title="Group">
+          <div className="h-[2000px]">Expenses</div>
+        </MainLayout>,
+      );
+    });
+
+    const mainLayout = container.querySelector<HTMLDivElement>('#mainlayout');
+    if (!mainLayout) {
+      throw new Error('Main layout was not rendered');
+    }
+
+    mainLayout.scrollTop = 452;
+    act(() => routeHandlers.get('routeChangeStart')?.());
+    act(() => routeHandlers.get('routeChangeComplete')?.());
+    mainLayout.scrollTop = 0;
+
+    router.pathname = '/expenses/[expenseId]';
+    router.asPath = '/expenses/cleanup-test';
+    act(() => {
+      root.render(
+        <MainLayout title="Expense">
+          <div>Expense detail</div>
+        </MainLayout>,
+      );
+    });
+
+    router.pathname = '/groups/[groupId]';
+    router.asPath = '/groups/scroll-cleanup-test';
+    act(() => {
+      root.render(
+        <MainLayout title="Group">
+          <div className="h-[2000px]">Expenses</div>
+        </MainLayout>,
+      );
+    });
+
+    const restoreFrame = animationFrames[animationFrames.length - 1];
+    act(() => restoreFrame?.(0));
+
+    expect(mainLayout.scrollTop).toBe(452);
+  } finally {
+    act(() => root.unmount());
+    document.body.removeChild(container);
+    requestAnimationFrame.mockRestore();
+    globalThis.ResizeObserver = previousResizeObserver;
+    window.scrollTo = previousScrollTo;
+    globalThis.IS_REACT_ACT_ENVIRONMENT = previousActEnvironment;
+    jest.useRealTimers();
+    mockedUseRouter.mockReset();
+  }
+});
