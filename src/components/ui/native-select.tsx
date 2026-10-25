@@ -6,6 +6,7 @@ import { cn } from '~/lib/utils';
 function NativeSelect({
   className,
   size = 'default',
+  style,
   ...props
 }: Omit<React.ComponentProps<'select'>, 'size'> & { size?: 'sm' | 'default' }) {
   return (
@@ -22,6 +23,7 @@ function NativeSelect({
           'aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive',
           className,
         )}
+        style={{ colorScheme: 'dark', ...style }}
         {...props}
       />
       <ChevronDownIcon
