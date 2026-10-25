@@ -26,7 +26,7 @@ jest.mock('~/utils/i18n/server', () => ({
   withI18nStaticProps: () => () => ({ props: {} }),
 }));
 
-import { AnalyticsScopePicker } from './card-analytics';
+import { AnalyticsScopePicker } from '../pages/card-analytics';
 
 beforeAll(() => {
   HTMLElement.prototype.scrollIntoView = jest.fn();
