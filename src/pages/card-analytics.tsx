@@ -1,11 +1,19 @@
-import { BarChart3, PencilIcon, TrendingUp, WalletCards } from 'lucide-react';
+import {
+  BarChart3,
+  CheckIcon,
+  ChevronDownIcon,
+  PencilIcon,
+  TrendingUp,
+  WalletCards,
+} from 'lucide-react';
 import Head from 'next/head';
 import React, { useMemo, useState } from 'react';
 
 import { CashExchangeDialog } from '~/components/Account/CashExchangeDialog';
 import MainLayout from '~/components/Layout/MainLayout';
 import { Button } from '~/components/ui/button';
-import { NativeSelect, NativeSelectOption } from '~/components/ui/native-select';
+import { Command, CommandItem, CommandList } from '~/components/ui/command';
+import { Popover, PopoverContent, PopoverTrigger } from '~/components/ui/popover';
 import { useTranslationWithUtils } from '~/hooks/useTranslationWithUtils';
 import { type CardRateHistoryItem } from '~/lib/cardAnalytics';
 import { isCurrencyCode } from '~/lib/currency';
@@ -17,6 +25,62 @@ import { withI18nStaticProps } from '~/utils/i18n/server';
 
 type RangeZoom = 'all' | '7d' | '1d';
 type AnalyticsScope = 'all' | 'personal' | number;
+
+interface AnalyticsScopeOption {
+  value: string;
+  label: string;
+}
+
+export const AnalyticsScopePicker: React.FC<{
+  options: AnalyticsScopeOption[];
+  value: string;
+  onValueChange: (value: string) => void;
+}> = ({ options, value, onValueChange }) => {
+  const [open, setOpen] = useState(false);
+  const selectedOption = options.find((option) => option.value === value);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          id="analytics-scope"
+          type="button"
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          aria-controls="analytics-scope-options"
+          className="bg-input/30 w-64 justify-between font-normal"
+        >
+          <span className="truncate">{selectedOption?.label}</span>
+          <ChevronDownIcon className="text-muted-foreground size-4 opacity-50" aria-hidden="true" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent id="analytics-scope-options" align="start" className="w-64 p-1">
+        <Command>
+          <CommandList>
+            {options.map((option) => (
+              <CommandItem
+                key={option.value}
+                value={option.value}
+                onSelect={() => {
+                  onValueChange(option.value);
+                  setOpen(false);
+                }}
+                className="cursor-pointer"
+              >
+                <CheckIcon
+                  className={`mr-2 size-4 ${option.value === value ? 'opacity-100' : 'opacity-0'}`}
+                  aria-hidden="true"
+                />
+                {option.label}
+              </CommandItem>
+            ))}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+};
 
 const CardAnalyticsPage: NextPageWithUser = () => {
   const { t, getCurrencyHelpersCached, toUIDate } = useTranslationWithUtils();
@@ -30,6 +94,14 @@ const CardAnalyticsPage: NextPageWithUser = () => {
     'number' === typeof scope
       ? groupsQuery.data?.find(({ group }) => group.id === scope)?.group
       : undefined;
+  const scopeOptions: AnalyticsScopeOption[] = [
+    { value: 'all', label: t('cards.analytics.scope_all') },
+    { value: 'personal', label: t('cards.analytics.scope_personal') },
+    ...(groupsQuery.data?.map(({ group }) => ({
+      value: group.id.toString(),
+      label: `${group.name}${group.archivedAt ? ` (${t('cards.archived')})` : ''}`,
+    })) ?? []),
+  ];
 
   const formatAmount = React.useCallback(
     (currency: string, amount: bigint) => {
@@ -56,27 +128,15 @@ const CardAnalyticsPage: NextPageWithUser = () => {
             <label htmlFor="analytics-scope" className="text-sm text-gray-500">
               {t('cards.analytics.scope_trip')}
             </label>
-            <NativeSelect
-              id="analytics-scope"
+            <AnalyticsScopePicker
+              options={scopeOptions}
               value={scope.toString()}
-              onChange={(event) => {
-                const value = event.target.value;
+              onValueChange={(value) => {
                 setScope(
                   'all' === value ? 'all' : 'personal' === value ? 'personal' : Number(value),
                 );
               }}
-            >
-              <NativeSelectOption value="all">{t('cards.analytics.scope_all')}</NativeSelectOption>
-              <NativeSelectOption value="personal">
-                {t('cards.analytics.scope_personal')}
-              </NativeSelectOption>
-              {groupsQuery.data?.map(({ group }) => (
-                <NativeSelectOption key={group.id} value={group.id.toString()}>
-                  {group.name}
-                  {group.archivedAt ? ` (${t('cards.archived')})` : ''}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
+            />
           </div>
           {'number' === typeof scope && !selectedGroup?.archivedAt ? (
             <CashExchangeDialog groupId={scope} />
