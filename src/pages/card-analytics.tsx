@@ -1,9 +1,19 @@
-import { BarChart3, TrendingUp, WalletCards } from 'lucide-react';
+import {
+  BarChart3,
+  CheckIcon,
+  ChevronDownIcon,
+  PencilIcon,
+  TrendingUp,
+  WalletCards,
+} from 'lucide-react';
 import Head from 'next/head';
 import React, { useMemo, useState } from 'react';
 
+import { CashExchangeDialog } from '~/components/Account/CashExchangeDialog';
 import MainLayout from '~/components/Layout/MainLayout';
 import { Button } from '~/components/ui/button';
+import { Command, CommandItem, CommandList } from '~/components/ui/command';
+import { Popover, PopoverContent, PopoverTrigger } from '~/components/ui/popover';
 import { useTranslationWithUtils } from '~/hooks/useTranslationWithUtils';
 import { type CardRateHistoryItem } from '~/lib/cardAnalytics';
 import { isCurrencyCode } from '~/lib/currency';
@@ -14,11 +24,84 @@ import { api } from '~/utils/api';
 import { withI18nStaticProps } from '~/utils/i18n/server';
 
 type RangeZoom = 'all' | '7d' | '1d';
+type AnalyticsScope = 'all' | 'personal' | number;
+
+interface AnalyticsScopeOption {
+  value: string;
+  label: string;
+}
+
+export const AnalyticsScopePicker: React.FC<{
+  options: AnalyticsScopeOption[];
+  value: string;
+  onValueChange: (value: string) => void;
+}> = ({ options, value, onValueChange }) => {
+  const [open, setOpen] = useState(false);
+  const selectedOption = options.find((option) => option.value === value);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          id="analytics-scope"
+          type="button"
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          aria-controls="analytics-scope-options"
+          className="bg-input/30 w-64 justify-between font-normal"
+        >
+          <span className="truncate">{selectedOption?.label}</span>
+          <ChevronDownIcon className="text-muted-foreground size-4 opacity-50" aria-hidden="true" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent id="analytics-scope-options" align="start" className="w-64 p-1">
+        <Command>
+          <CommandList>
+            {options.map((option) => (
+              <CommandItem
+                key={option.value}
+                value={option.value}
+                onSelect={() => {
+                  onValueChange(option.value);
+                  setOpen(false);
+                }}
+                className="cursor-pointer"
+              >
+                <CheckIcon
+                  className={`mr-2 size-4 ${option.value === value ? 'opacity-100' : 'opacity-0'}`}
+                  aria-hidden="true"
+                />
+                {option.label}
+              </CommandItem>
+            ))}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+};
 
 const CardAnalyticsPage: NextPageWithUser = () => {
   const { t, getCurrencyHelpersCached, toUIDate } = useTranslationWithUtils();
-  const analyticsQuery = api.card.analytics.useQuery();
+  const [scope, setScope] = useState<AnalyticsScope>('all');
+  const groupsQuery = api.group.getAllGroups.useQuery();
+  const analyticsQuery = api.card.analytics.useQuery(
+    'all' === scope ? undefined : { groupId: 'personal' === scope ? null : scope },
+  );
   const analytics = analyticsQuery.data;
+  const selectedGroup =
+    'number' === typeof scope
+      ? groupsQuery.data?.find(({ group }) => group.id === scope)?.group
+      : undefined;
+  const scopeOptions: AnalyticsScopeOption[] = [
+    { value: 'all', label: t('cards.analytics.scope_all') },
+    { value: 'personal', label: t('cards.analytics.scope_personal') },
+    ...(groupsQuery.data?.map(({ group }) => ({
+      value: group.id.toString(),
+      label: `${group.name}${group.archivedAt ? ` (${t('cards.archived')})` : ''}`,
+    })) ?? []),
+  ];
 
   const formatAmount = React.useCallback(
     (currency: string, amount: bigint) => {
@@ -36,13 +119,75 @@ const CardAnalyticsPage: NextPageWithUser = () => {
       <Head>
         <title>{t('cards.analytics.title')}</title>
       </Head>
-      <MainLayout title={t('cards.analytics.title')} loading={analyticsQuery.isPending}>
+      <MainLayout
+        title={t('cards.analytics.title')}
+        loading={analyticsQuery.isPending || groupsQuery.isPending}
+      >
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <div className="grid gap-1">
+            <label htmlFor="analytics-scope" className="text-sm text-gray-500">
+              {t('cards.analytics.scope_trip')}
+            </label>
+            <AnalyticsScopePicker
+              options={scopeOptions}
+              value={scope.toString()}
+              onValueChange={(value) => {
+                setScope(
+                  'all' === value ? 'all' : 'personal' === value ? 'personal' : Number(value),
+                );
+              }}
+            />
+          </div>
+          {'number' === typeof scope && !selectedGroup?.archivedAt ? (
+            <CashExchangeDialog groupId={scope} />
+          ) : null}
+        </div>
         {!analytics ||
         (0 === analytics.spendingByCard.length &&
-          0 === analytics.foreignSpendingByCurrency.length) ? (
+          0 === analytics.foreignSpendingByCurrency.length &&
+          0 === analytics.cashExchanges.history.length) ? (
           <p className="mt-16 text-center text-gray-500">{t('cards.analytics.empty')}</p>
         ) : (
           <div className="flex flex-col gap-6">
+            {0 < analytics.cashExchanges.history.length ? (
+              <Section
+                title={t('cards.analytics.cash_exchanges')}
+                icon={<TrendingUp className="size-5" />}
+              >
+                {analytics.cashExchanges.averages.map((entry) => (
+                  <Metric
+                    key={`${entry.cardId ?? 'standalone'}-${entry.cashCurrency}-${entry.settlementCurrency}`}
+                    label={`${entry.cardName ?? t('cards.analytics.cash_exchange_standalone')} · ${entry.cashCurrency}/${entry.settlementCurrency}`}
+                    value={`${formatDisplayRate(entry.averageRate)} (${t('cards.analytics.cash_exchange_count', { count: entry.count })})`}
+                  />
+                ))}
+                {analytics.cashExchanges.history.map((entry) => (
+                  <Metric
+                    key={entry.id}
+                    label={`${entry.name} · ${toUIDate(entry.exchangeDate)}`}
+                    value={`${formatAmount(entry.cashCurrency, entry.cashAmount)} → ${formatAmount(entry.settlementCurrency, entry.settlementAmount)} @ ${formatDisplayRate(entry.rate)}`}
+                    action={
+                      'number' === typeof scope && !selectedGroup?.archivedAt ? (
+                        <CashExchangeDialog
+                          groupId={scope}
+                          exchange={entry}
+                          trigger={
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              aria-label={t('cards.analytics.edit_cash_exchange')}
+                            >
+                              <PencilIcon className="size-4" />
+                            </Button>
+                          }
+                        />
+                      ) : null
+                    }
+                  />
+                ))}
+              </Section>
+            ) : null}
             <Section title={t('cards.analytics.insights')} icon={<TrendingUp className="size-5" />}>
               {analytics.insights.mostUsedCard ? (
                 <Metric
@@ -159,10 +304,15 @@ const Section: React.FC<React.PropsWithChildren<{ title: string; icon: React.Rea
   </section>
 );
 
-const Metric: React.FC<{ label: string; value: string }> = ({ label, value }) => (
+const Metric: React.FC<{ label: string; value: string; action?: React.ReactNode }> = ({
+  action,
+  label,
+  value,
+}) => (
   <div className="flex items-center justify-between gap-3 rounded-md border p-3">
-    <span className="min-w-0 truncate text-sm text-gray-500">{label}</span>
+    <span className="min-w-0 flex-1 truncate text-sm text-gray-500">{label}</span>
     <span className="shrink-0 text-right font-medium">{value}</span>
+    {action}
   </div>
 );
 

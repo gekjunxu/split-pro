@@ -52,6 +52,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
     let restoredScrollPosition = false;
     let scrollRestorationCancelled = false;
     let routeChangeStarted = false;
+    let skipCleanupSave = false;
 
     const restoreScrollPosition = () => {
       if (
@@ -106,8 +107,14 @@ const MainLayout: React.FC<MainLayoutProps> = ({
       saveCurrentScrollPosition();
       routeChangeStarted = true;
     };
+    const handleRouteChangeComplete = () => {
+      routeChangeStarted = false;
+      // Next completes the route before React cleans up this effect; do not save the new page's scroll under the old URL.
+      skipCleanupSave = true;
+    };
     const handleRouteChangeError = () => {
       routeChangeStarted = false;
+      skipCleanupSave = false;
     };
 
     mainLayout.addEventListener('scroll', saveCurrentScrollPosition, { passive: true });
@@ -115,6 +122,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
     mainLayout.addEventListener('touchstart', cancelScrollRestoration, { passive: true });
     window.addEventListener('scroll', saveCurrentScrollPosition, { passive: true });
     router.events.on('routeChangeStart', handleRouteChangeStart);
+    router.events.on('routeChangeComplete', handleRouteChangeComplete);
     router.events.on('routeChangeError', handleRouteChangeError);
     window.addEventListener('beforeunload', saveCurrentScrollPosition);
 
@@ -122,12 +130,15 @@ const MainLayout: React.FC<MainLayoutProps> = ({
       resizeObserver.disconnect();
       cancelAnimationFrame(animationFrameId);
       restoreTimeoutIds.forEach((timeoutId) => window.clearTimeout(timeoutId));
-      saveCurrentScrollPosition();
+      if (!skipCleanupSave) {
+        saveCurrentScrollPosition();
+      }
       mainLayout.removeEventListener('scroll', saveCurrentScrollPosition);
       mainLayout.removeEventListener('wheel', cancelScrollRestoration);
       mainLayout.removeEventListener('touchstart', cancelScrollRestoration);
       window.removeEventListener('scroll', saveCurrentScrollPosition);
       router.events.off('routeChangeStart', handleRouteChangeStart);
+      router.events.off('routeChangeComplete', handleRouteChangeComplete);
       router.events.off('routeChangeError', handleRouteChangeError);
       window.removeEventListener('beforeunload', saveCurrentScrollPosition);
     };

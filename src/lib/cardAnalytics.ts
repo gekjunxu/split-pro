@@ -1,5 +1,10 @@
 import { isCurrencyCode } from '~/lib/currency';
 import { calculatePaidPerSettlementRate } from '~/lib/originalExpense';
+import {
+  type CashExchangeAnalyticsInput,
+  type CashExchangeAnalyticsSummary,
+  calculateCashExchangeAnalytics,
+} from '~/lib/cashExchangeAnalytics';
 
 export interface CardAnalyticsExpense {
   id?: string;
@@ -40,6 +45,7 @@ export interface CardAnalyticsSummary {
     cards: { cardId: number; cardName: string; averageRate: number; count: number }[];
   }[];
   rateHistory: CardRateHistoryItem[];
+  cashExchanges: CashExchangeAnalyticsSummary;
   insights: {
     mostUsedCard?: string;
     highestForeignSpendCard?: string;
@@ -80,7 +86,10 @@ const toEffectiveCardRate = (expense: CardAnalyticsExpense) => {
   });
 };
 
-export const calculateCardAnalytics = (expenses: CardAnalyticsExpense[]): CardAnalyticsSummary => {
+export const calculateCardAnalytics = (
+  expenses: CardAnalyticsExpense[],
+  cashExchanges: CashExchangeAnalyticsInput[] = [],
+): CardAnalyticsSummary => {
   const spendingByCard = new Map<string, bigint>();
   const foreignSpendingByCurrency = new Map<string, bigint>();
   const cardUsageCounts = new Map<string, number>();
@@ -232,6 +241,7 @@ export const calculateCardAnalytics = (expenses: CardAnalyticsExpense[]): CardAn
     cardUsageCounts: cardUsage,
     averageRatesByCurrency,
     rateHistory,
+    cashExchanges: calculateCashExchangeAnalytics(cashExchanges),
     insights: {
       mostUsedCard,
       highestForeignSpendCard:

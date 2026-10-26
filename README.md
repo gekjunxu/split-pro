@@ -43,6 +43,11 @@ Keep it updated when adding local behavior so future rebases and upstream compar
   reopening an expense instead of reducing or reconstructing them from converted participant
   amounts. For example, a JPY 300 expense split as 200 and 100 stays visible as 200 and 100, not 2
   and 1.
+- Payment-source analytics can be viewed across all trips, for personal/no-trip expenses, or for
+  one trip so exchange rates and spending do not get blended unintentionally.
+- Cash payment sources are trip-scoped. Standalone cash-exchange records can be attached to a
+  cash tranche or kept independent, with per-tranche weighted average rates for money-changer
+  tracking; these records do not affect expense balances.
 
 ## UI preview
 

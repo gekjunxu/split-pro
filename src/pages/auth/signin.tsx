@@ -300,11 +300,29 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   } catch (error) {
     console.error(error);
   }
-  const { callbackUrl, error } = context.query;
+  const { callbackUrl: callbackUrlFromQuery, error } = context.query;
+  const authUrl = new URL(env.NEXTAUTH_URL);
+  const appBasePath = authUrl.pathname.replace(/\/api\/auth\/?$/, '');
+  const defaultHomePath = env.DEFAULT_HOMEPAGE === '/home' ? '/balances' : env.DEFAULT_HOMEPAGE;
+  const defaultCallbackUrl = new URL(
+    `${appBasePath}${context.locale ? `/${context.locale}` : ''}${defaultHomePath}`,
+    authUrl.origin,
+  ).toString();
+  const requestedCallbackUrl =
+    callbackUrlFromQuery && !Array.isArray(callbackUrlFromQuery)
+      ? new URL(callbackUrlFromQuery, authUrl.origin)
+      : undefined;
+  const isValidCallbackUrl =
+    requestedCallbackUrl?.origin === authUrl.origin &&
+    (!appBasePath ||
+      requestedCallbackUrl.pathname === appBasePath ||
+      requestedCallbackUrl.pathname.startsWith(`${appBasePath}/`));
+  const resolvedCallbackUrl = isValidCallbackUrl
+    ? requestedCallbackUrl.toString()
+    : defaultCallbackUrl;
 
   if (session) {
-    const redirectUrl = env.DEFAULT_HOMEPAGE == '/home' ? '/balances' : env.DEFAULT_HOMEPAGE;
-    const destination = callbackUrl && !Array.isArray(callbackUrl) ? callbackUrl : redirectUrl;
+    const destination = resolvedCallbackUrl;
 
     return {
       redirect: {
@@ -320,7 +338,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
       error: typeof error === 'string' ? error : '',
       feedbackEmail: env.FEEDBACK_EMAIL ?? '',
       providers: Object.values(providers ?? {}),
-      callbackUrl: callbackUrl && !Array.isArray(callbackUrl) ? callbackUrl : '',
+      callbackUrl: resolvedCallbackUrl,
       oauthAutoRedirect: env.OAUTH_AUTO_REDIRECT,
     },
   };

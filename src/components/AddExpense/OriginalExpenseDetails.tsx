@@ -32,6 +32,7 @@ export const OriginalExpenseDetails: React.FC<{
   originalAmount?: bigint;
   originalCurrency?: CurrencyCode;
   conversionRate?: number;
+  groupId: number | null;
   cardId?: number | null;
   preferredCurrencies?: CurrencyCode[];
   onStartOverseas: (paidCurrency: CurrencyCode) => void;
@@ -51,6 +52,7 @@ export const OriginalExpenseDetails: React.FC<{
   originalAmount,
   originalCurrency,
   conversionRate,
+  groupId,
   cardId,
   preferredCurrencies = [],
   onStartOverseas,
@@ -61,10 +63,13 @@ export const OriginalExpenseDetails: React.FC<{
 }) => {
   const { t, getCurrencyHelpersCached } = useTranslationWithUtils();
 
-  const cardsQuery = api.card.list.useQuery(undefined, {
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-  });
+  const cardsQuery = api.card.list.useQuery(
+    { groupId },
+    {
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+    },
+  );
   const selectedPaymentSource = useMemo(
     () => cardsQuery.data?.find((card) => card.id === cardId),
     [cardId, cardsQuery.data],

@@ -26,6 +26,7 @@ import { CurrencyInput } from '~/components/ui/currency-input';
 
 interface CardFormState {
   id?: number;
+  groupId: number | null;
   name: string;
   issuer: string;
   network: string;
@@ -40,6 +41,7 @@ interface CardFormState {
 }
 
 const emptyCardForm: CardFormState = {
+  groupId: null,
   name: '',
   issuer: '',
   network: '',
@@ -57,6 +59,7 @@ const CardsPage: NextPageWithUser = () => {
   const { t, getCurrencyHelpersCached } = useTranslationWithUtils();
   const utils = api.useUtils();
   const cardsQuery = api.card.list.useQuery({ includeArchived: true });
+  const groupsQuery = api.group.getAllGroups.useQuery();
   const createCard = api.card.create.useMutation();
   const updateCard = api.card.update.useMutation();
   const archiveCard = api.card.archive.useMutation();
@@ -84,6 +87,7 @@ const CardsPage: NextPageWithUser = () => {
     (card: NonNullable<typeof cardsQuery.data>[number]) => {
       setForm({
         id: card.id,
+        groupId: card.groupId ?? null,
         name: card.name,
         issuer: card.issuer ?? '',
         network: card.network ?? '',
@@ -160,6 +164,7 @@ const CardsPage: NextPageWithUser = () => {
     setForm((current) => ({
       ...current,
       type: event.target.value === 'CASH' ? 'CASH' : 'CARD',
+      groupId: event.target.value === 'CASH' ? current.groupId : null,
     }));
   }, []);
 
@@ -194,7 +199,7 @@ const CardsPage: NextPageWithUser = () => {
       <Head>
         <title>{t('cards.title')}</title>
       </Head>
-      <MainLayout title={t('cards.title')} loading={cardsQuery.isPending}>
+      <MainLayout title={t('cards.title')} loading={cardsQuery.isPending || groupsQuery.isPending}>
         <div className="flex flex-col gap-4">
           <Button className="w-full gap-2" onClick={onAdd}>
             <PlusIcon className="size-4" />
@@ -222,6 +227,9 @@ const CardsPage: NextPageWithUser = () => {
                             card.defaultRate
                               ? `${card.defaultRate} ${card.defaultCurrency}/${card.settlementCurrency}`
                               : null,
+                            card.groupId
+                              ? `${t('cards.trip')}: ${groupsQuery.data?.find(({ group }) => group.id === card.groupId)?.group.name ?? card.groupId}`
+                              : t('cards.unassigned'),
                             card.autoConvertToSettlement ? t('cards.auto_convert_enabled') : null,
                           ]
                             .filter(Boolean)
@@ -284,6 +292,29 @@ const CardsPage: NextPageWithUser = () => {
                 </>
               ) : (
                 <>
+                  <div className="grid gap-2">
+                    <Label>{t('cards.trip')}</Label>
+                    <NativeSelect
+                      value={form.groupId?.toString() ?? ''}
+                      onChange={(event) =>
+                        setForm((current) => ({
+                          ...current,
+                          groupId: '' === event.target.value ? null : Number(event.target.value),
+                        }))
+                      }
+                    >
+                      <NativeSelectOption value="">
+                        {t('cards.trip_placeholder')}
+                      </NativeSelectOption>
+                      {groupsQuery.data
+                        ?.filter(({ group }) => !group.archivedAt)
+                        .map(({ group }) => (
+                          <NativeSelectOption key={group.id} value={group.id.toString()}>
+                            {group.name}
+                          </NativeSelectOption>
+                        ))}
+                    </NativeSelect>
+                  </div>
                   <div className="grid gap-2">
                     <Label>{t('cards.cash_currency')}</Label>
                     <NativeSelect
@@ -356,7 +387,12 @@ const CardsPage: NextPageWithUser = () => {
                 {t('actions.cancel')}
               </Button>
               <Button
-                disabled={'' === form.name || createCard.isPending || updateCard.isPending}
+                disabled={
+                  '' === form.name ||
+                  ('CASH' === form.type && null === form.groupId) ||
+                  createCard.isPending ||
+                  updateCard.isPending
+                }
                 onClick={onSave}
               >
                 {t('actions.save')}

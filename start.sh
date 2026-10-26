@@ -44,7 +44,7 @@ fi
 export DATABASE_URL
 
 echo "Applying database migrations"
-./node_modules/.bin/prisma migrate deploy
+./node_modules/.bin/prisma migrate deploy --config ./prisma.config.ts
 
 echo "Starting web server"
 

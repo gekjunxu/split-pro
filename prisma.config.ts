@@ -1,16 +1,16 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { loadEnvFile } from 'node:process';
-import type { PrismaConfig } from 'prisma/config';
+import { defineConfig, env } from 'prisma/config';
 
 if (existsSync('.env')) {
   loadEnvFile('.env');
 }
 
-export default {
+export default defineConfig({
   schema: path.join('prisma', 'schema.prisma'),
   datasource: {
-    url: process.env.DATABASE_URL,
+    url: env('DATABASE_URL'),
   },
   migrations: {
     path: path.join('prisma', 'migrations'),
@@ -22,4 +22,4 @@ export default {
   tables: {
     external: ['cron.job', 'cron.job_run_details'],
   },
-} satisfies PrismaConfig;
+});
