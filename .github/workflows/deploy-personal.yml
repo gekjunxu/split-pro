@@ -1,4 +1,4 @@
-name: Deploy
+name: Deploy personal
 
 on:
   push:
@@ -9,6 +9,7 @@ on:
 
 jobs:
   deploy:
+    if: github.ref == 'refs/heads/personal'
     runs-on: ubuntu-latest
 
     permissions:
