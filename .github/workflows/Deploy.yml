@@ -17,7 +17,7 @@ jobs:
     env:
       DEPLOY_HOST: prodesk
       DEPLOY_USER: junxu
-      DEPLOY_PATH: /home/junxu/splitprointegration
+      DEPLOY_PATH: /home/junxu/split-pro
       DEPLOY_BRANCH: ${{ github.ref_name }}
 
     steps:
@@ -58,8 +58,8 @@ jobs:
                 git clone --branch "$DEPLOY_BRANCH" --single-branch "$REPOSITORY_URL" "$DEPLOY_PATH"
               fi
 
-              if [ ! -f "$DEPLOY_PATH/docker/preview/.env" ]; then
-                echo "Missing $DEPLOY_PATH/docker/preview/.env; create it from docker/preview/.env.example on prodesk before deploying." >&2
+              if [ ! -f "$DEPLOY_PATH/.env" ]; then
+                echo "Missing $DEPLOY_PATH/.env; create it from .env.example on prodesk before deploying." >&2
                 exit 1
               fi
 
@@ -67,5 +67,8 @@ jobs:
               git fetch origin "$DEPLOY_BRANCH"
               git checkout "$DEPLOY_BRANCH" 2>/dev/null || git checkout -b "$DEPLOY_BRANCH" FETCH_HEAD
               git pull --ff-only origin "$DEPLOY_BRANCH"
-              docker compose --env-file docker/preview/.env -f docker/preview/compose.yml up -d --build
+              if [ ! -e docker/prod/.env ] && [ ! -L docker/prod/.env ]; then
+                ln -s ../../.env docker/prod/.env
+              fi
+              docker compose --env-file .env -f docker/prod/compose.yml up -d --build
           EOF
