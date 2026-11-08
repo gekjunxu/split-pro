@@ -43,7 +43,7 @@ const BalancePage: NextPageWithUser = () => {
     () => (
       <CreateGroup>
         <Button variant="ghost" size="icon" aria-label={t('group_details.create_group.title')}>
-          <PlusIcon />
+          <PlusIcon className="text-primary h-6 w-6" />
         </Button>
       </CreateGroup>
     ),
