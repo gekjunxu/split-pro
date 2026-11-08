@@ -26,7 +26,7 @@ jest.mock('next-themes', () => ({
   ThemeProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
 
-import GroupsPage from './groups';
+import GroupsPage from '~/pages/groups';
 
 it('renders the add-group icon at a visible size', () => {
   renderWithProviders(
