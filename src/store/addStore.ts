@@ -416,13 +416,6 @@ export function calculateParticipantSplit(
       }
     }
 
-    if (
-      canSplitScreenClosed &&
-      1 < participants.length &&
-      updatedParticipants.every((p) => 0n === (p.amount ?? 0n))
-    ) {
-      canSplitScreenClosed = false;
-    }
   }
 
   return { ...state, participants: updatedParticipants, canSplitScreenClosed };
