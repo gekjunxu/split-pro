@@ -104,17 +104,25 @@ describe('validateAndNormalizeOriginalExpenseFields', () => {
   });
 
   it('formats effective rates in both currency directions', () => {
-    expect(formatBidirectionalConversionRate(0.32, 'SGD', 'MYR')).toBe(
-      '0.32 SGD/MYR (3.125 MYR/SGD)',
-    );
-    expect(formatBidirectionalConversionRate(1.25, 'EUR', 'JPY')).toBe(
-      '1.25 EUR/JPY (0.8 JPY/EUR)',
-    );
+    expect(formatBidirectionalConversionRate(0.32, 'SGD', 'MYR')).toEqual({
+      primary: '1 SGD = 3.125 MYR',
+      secondary: '(0.32 SGD/MYR)',
+    });
+    expect(formatBidirectionalConversionRate(1.25, 'EUR', 'JPY')).toEqual({
+      primary: '1 EUR = 0.8 JPY',
+      secondary: '(1.25 EUR/JPY)',
+    });
   });
 
   it('does not render an inverse for invalid effective rates', () => {
-    expect(formatBidirectionalConversionRate(0, 'SGD', 'MYR')).toBe('0');
-    expect(formatBidirectionalConversionRate(-1, 'SGD', 'MYR')).toBe('0');
+    expect(formatBidirectionalConversionRate(0, 'SGD', 'MYR')).toEqual({
+      primary: '0',
+      secondary: '',
+    });
+    expect(formatBidirectionalConversionRate(-1, 'SGD', 'MYR')).toEqual({
+      primary: '0',
+      secondary: '',
+    });
   });
 
   it('keeps same-currency expenses unchanged by clearing original fields', () => {
