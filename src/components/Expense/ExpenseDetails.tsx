@@ -30,7 +30,11 @@ import { Separator } from '../ui/separator';
 import { Receipt } from './Receipt';
 import { DateSelector } from '../AddExpense/DateSelector';
 import { OriginalExpenseSummary } from './OriginalExpenseSummary';
-import { formatConversionRate, hasOriginalExpenseDetails } from '~/lib/originalExpense';
+import {
+  formatBidirectionalConversionRate,
+  formatConversionRate,
+  hasOriginalExpenseDetails,
+} from '~/lib/originalExpense';
 
 type ExpenseDetailsOutput = NonNullable<inferRouterOutputs<ExpenseRouter>['getExpenseDetails']>;
 
@@ -81,8 +85,14 @@ const ExpenseDetails: React.FC<ExpenseDetailsProps> = ({ user, expense }) => {
                   {t('cards.card')}: {expense.card?.name ?? t('cards.no_card')}
                 </p>
                 <p>
-                  {t('cards.effective_rate')}: {formatConversionRate(expense.conversionRate ?? 0)}{' '}
-                  {expense.currency}/{expense.originalCurrency}
+                  {t('cards.effective_rate')}:{' '}
+                  {0 < (expense.conversionRate ?? 0)
+                    ? formatBidirectionalConversionRate(
+                        expense.conversionRate!,
+                        expense.currency,
+                        expense.originalCurrency!,
+                      )
+                    : `${formatConversionRate(expense.conversionRate ?? 0)} ${expense.currency}/${expense.originalCurrency}`}
                 </p>
               </div>
             )}

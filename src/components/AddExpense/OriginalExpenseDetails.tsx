@@ -9,6 +9,7 @@ import {
   calculateExchangeRateFromSettlement,
   calculatePaidPerSettlementRate,
   calculateSettlementAmount,
+  formatBidirectionalConversionRate,
   formatConversionRate,
   formatDisplayRate,
 } from '~/lib/originalExpense';
@@ -438,6 +439,9 @@ export const OriginalExpenseDetails: React.FC<{
               paidCurrency: originalCurrency,
               settlementCurrency,
             })}
+            {0 < effectiveExchangeRate
+              ? ` (${formatConversionRate(effectiveExchangeRate)} ${settlementCurrency}/${originalCurrency})`
+              : null}
           </span>
         ) : null}
       </div>
@@ -508,8 +512,11 @@ export const OriginalExpenseDetails: React.FC<{
           </span>
           {0 < effectiveExchangeRate ? (
             <span>
-              1 {originalCurrency} = {formatConversionRate(effectiveExchangeRate)}{' '}
-              {settlementCurrency}
+              {formatBidirectionalConversionRate(
+                effectiveExchangeRate,
+                settlementCurrency,
+                originalCurrency,
+              )}
             </span>
           ) : null}
         </div>

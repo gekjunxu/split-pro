@@ -83,6 +83,20 @@ export const validateAndNormalizeOriginalExpenseFields = <T extends OriginalExpe
 export const formatConversionRate = (conversionRate: number) =>
   removeTrailingZeros(conversionRate.toFixed(getRatePrecision(conversionRate, MAX_RATE_PRECISION)));
 
+export const formatBidirectionalConversionRate = (
+  rate: number,
+  settlementCurrency: string,
+  originalCurrency: string,
+) => {
+  if (!Number.isFinite(rate) || 0 >= rate) {
+    return '0';
+  }
+
+  return `${formatConversionRate(rate)} ${settlementCurrency}/${originalCurrency} (${formatConversionRate(
+    1 / rate,
+  )} ${originalCurrency}/${settlementCurrency})`;
+};
+
 export const formatDisplayRate = (rate: number) => {
   if (!Number.isFinite(rate) || 0 >= rate) {
     return '0';
