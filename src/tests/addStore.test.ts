@@ -166,7 +166,7 @@ describe('calculateParticipantSplit', () => {
       expect(result.canSplitScreenClosed).toBe(true);
     });
 
-    it('should mark a multi-person self-only split as incomplete', () => {
+    it('should allow a payer-only split with another zero-share participant', () => {
       const participants = createParticipants([user1, user2]);
       const splitShares = createSplitShares(participants, SplitType.EQUAL, [1n, 0n]);
 
@@ -183,7 +183,7 @@ describe('calculateParticipantSplit', () => {
 
       expect(result.participants[0]?.amount).toBe(0n);
       expect(result.participants[1]?.amount).toBe(0n);
-      expect(result.canSplitScreenClosed).toBe(false);
+      expect(result.canSplitScreenClosed).toBe(true);
     });
 
     it('should mark equal split incomplete when every share is disabled', () => {
