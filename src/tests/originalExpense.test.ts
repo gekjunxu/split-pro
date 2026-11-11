@@ -4,6 +4,7 @@ import {
   calculateExchangeRateFromSettlement,
   calculatePaidPerSettlementRate,
   calculateSettlementAmount,
+  formatBidirectionalConversionRate,
   formatDisplayRate,
   validateAndNormalizeOriginalExpenseFields,
 } from '~/lib/originalExpense';
@@ -100,6 +101,28 @@ describe('validateAndNormalizeOriginalExpenseFields', () => {
     expect(formatDisplayRate(1172.161172)).toBe('1172.16');
     expect(formatDisplayRate(23.7288135)).toBe('23.729');
     expect(formatDisplayRate(0.04214)).toBe('0.0421');
+  });
+
+  it('formats effective rates in both currency directions', () => {
+    expect(formatBidirectionalConversionRate(0.32, 'SGD', 'MYR')).toEqual({
+      primary: '1 SGD = 3.125 MYR',
+      secondary: '(0.32 SGD/MYR)',
+    });
+    expect(formatBidirectionalConversionRate(1.25, 'EUR', 'JPY')).toEqual({
+      primary: '1 EUR = 0.8 JPY',
+      secondary: '(1.25 EUR/JPY)',
+    });
+  });
+
+  it('does not render an inverse for invalid effective rates', () => {
+    expect(formatBidirectionalConversionRate(0, 'SGD', 'MYR')).toEqual({
+      primary: '0',
+      secondary: '',
+    });
+    expect(formatBidirectionalConversionRate(-1, 'SGD', 'MYR')).toEqual({
+      primary: '0',
+      secondary: '',
+    });
   });
 
   it('keeps same-currency expenses unchanged by clearing original fields', () => {

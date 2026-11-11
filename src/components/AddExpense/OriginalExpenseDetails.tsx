@@ -9,6 +9,7 @@ import {
   calculateExchangeRateFromSettlement,
   calculatePaidPerSettlementRate,
   calculateSettlementAmount,
+  formatBidirectionalConversionRate,
   formatConversionRate,
   formatDisplayRate,
 } from '~/lib/originalExpense';
@@ -432,12 +433,25 @@ export const OriginalExpenseDetails: React.FC<{
           </Button>
         </div>
         {0 < effectiveCardRate ? (
-          <span className="text-primary text-xs font-medium">
-            {t('expense_details.add_expense_details.overseas.card_rate_direction', {
-              rate: formatDisplayRate(effectiveCardRate),
-              paidCurrency: originalCurrency,
-              settlementCurrency,
-            })}
+          <span className="text-primary flex flex-col items-end gap-0.5 text-xs font-medium">
+            <span>
+              {
+                formatBidirectionalConversionRate(
+                  effectiveExchangeRate,
+                  settlementCurrency,
+                  originalCurrency,
+                ).primary
+              }
+            </span>
+            <span className="text-[11px] font-normal text-gray-400">
+              {
+                formatBidirectionalConversionRate(
+                  effectiveExchangeRate,
+                  settlementCurrency,
+                  originalCurrency,
+                ).secondary
+              }
+            </span>
           </span>
         ) : null}
       </div>
@@ -507,9 +521,25 @@ export const OriginalExpenseDetails: React.FC<{
             })}
           </span>
           {0 < effectiveExchangeRate ? (
-            <span>
-              1 {originalCurrency} = {formatConversionRate(effectiveExchangeRate)}{' '}
-              {settlementCurrency}
+            <span className="flex flex-col items-end">
+              <span>
+                {
+                  formatBidirectionalConversionRate(
+                    effectiveExchangeRate,
+                    settlementCurrency,
+                    originalCurrency,
+                  ).primary
+                }
+              </span>
+              <span className="text-[11px] text-gray-500">
+                {
+                  formatBidirectionalConversionRate(
+                    effectiveExchangeRate,
+                    settlementCurrency,
+                    originalCurrency,
+                  ).secondary
+                }
+              </span>
             </span>
           ) : null}
         </div>
