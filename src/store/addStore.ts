@@ -324,6 +324,9 @@ export function calculateParticipantSplit(
 ) {
   const { amount, participants, splitType, splitShares, paidBy, expenseDate } = state;
   let canSplitScreenClosed = true;
+  if (0 === participants.length) {
+    return { ...state, canSplitScreenClosed: false };
+  }
   if (0n === amount) {
     return { ...state, canSplitScreenClosed };
   }

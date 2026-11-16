@@ -100,6 +100,20 @@ describe('calculateParticipantSplit', () => {
       expect(result.participants).toEqual([]);
       expect(result.canSplitScreenClosed).toBe(false);
     });
+
+    it('should keep an empty adjustment split invalid without throwing', () => {
+      const state: Partial<AddExpenseState> = {
+        amount: 10000n,
+        participants: [],
+        splitType: SplitType.ADJUSTMENT,
+        splitShares: {},
+        paidBy: undefined,
+        expenseDate: new Date('2024-01-01'),
+      };
+
+      expect(() => calculateParticipantSplit(state as AddExpenseState)).not.toThrow();
+      expect(calculateParticipantSplit(state as AddExpenseState).canSplitScreenClosed).toBe(false);
+    });
   });
 
   describe('SplitType.EQUAL', () => {
